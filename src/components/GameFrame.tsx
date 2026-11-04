@@ -132,6 +132,18 @@ export function GameFrame({
     return () => window.removeEventListener('message', onMessage);
   }, [token, post, enqueue, finish, load]);
 
+  // Safari can size the game's canvas before the iframe is laid out, leaving it stretched
+  // (only the sky visible). Changing the iframe's height by 1px and back gives the game a
+  // 'resize' event, so it measures again. Done twice, shortly after load.
+  const [nudged, setNudged] = useState(false);
+  const onFrameLoad = useCallback(() => {
+    iframeRef.current?.contentWindow?.focus();
+    for (const at of [300, 1500]) {
+      setTimeout(() => setNudged(true), at);
+      setTimeout(() => setNudged(false), at + 150);
+    }
+  }, []);
+
   if (!session) return <Message text="Loading the game..." />;
 
   return (
@@ -141,8 +153,9 @@ export function GameFrame({
       src={GAME_URL}
       title="Driving game"
       allow="autoplay; fullscreen"
-      onLoad={() => iframeRef.current?.contentWindow?.focus()}
-      className="fixed inset-0 h-[100dvh] w-screen border-0 bg-black"
+      onLoad={onFrameLoad}
+      style={{ height: nudged ? 'calc(100dvh - 1px)' : '100dvh' }}
+      className="fixed inset-0 w-screen border-0 bg-black"
     />
   );
 }
