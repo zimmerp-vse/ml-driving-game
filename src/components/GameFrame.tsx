@@ -31,6 +31,13 @@ export function GameFrame({
   const finishedRef = useRef(false);
   // Round calls run one after another, so round_end never overtakes its round_start.
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+  // The game is started only after the student clicks "Start driving": that click is what
+  // lets the browser (Safari in particular) move keyboard focus into the game, and the first
+  // round's clock does not run while the student is still reading.
+  const [started, setStarted] = useState(false);
+  const readyRef = useRef(false);
+  const startedRef = useRef(false);
+  const initSentRef = useRef(false);
   const callbacks = useRef({ onDone, onNotOpen, onError });
   callbacks.current = { onDone, onNotOpen, onError };
 
@@ -65,6 +72,10 @@ export function GameFrame({
         respondent_id: s.respondent_id,
       };
       sessionRef.current = next;
+      readyRef.current = false;
+      initSentRef.current = false;
+      startedRef.current = false;
+      setStarted(false);
       setSession(next);
       setFrameKey((k) => k + 1); // a fresh iframe for a fresh schedule
     } catch {
@@ -76,6 +87,39 @@ export function GameFrame({
     finishedRef.current = false;
     load();
   }, [load]);
+
+  // Send INIT once the game is READY and the student has clicked "Start driving".
+  const sendInit = useCallback(() => {
+    const s = sessionRef.current;
+    if (!s || !readyRef.current || !startedRef.current || initSentRef.current) return;
+    initSentRef.current = true;
+    post('INIT', {
+      session: { sessionId: s.respondent_id },
+      player: { nickname: s.nick },
+      difficulty: { ...s.fixed, totalRounds: TOTAL_ROUNDS, schedule: s.rounds },
+      ui: { showQuitButton: false, autoStart: true, showRoundTotal: false },
+    });
+  }, [post]);
+
+  const focusGame = useCallback(() => {
+    iframeRef.current?.focus();
+    iframeRef.current?.contentWindow?.focus();
+  }, []);
+
+  const start = useCallback(() => {
+    startedRef.current = true;
+    setStarted(true);
+    focusGame(); // inside the click, so the browser allows it
+    sendInit();
+  }, [focusGame, sendInit]);
+
+  // If a key press ever lands on this page instead of the game, move focus back into the game.
+  useEffect(() => {
+    if (!started) return;
+    const onKey = () => focusGame();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [started, focusGame]);
 
   const enqueue = useCallback((task: () => Promise<void>) => {
     queueRef.current = queueRef.current.then(task).catch((e) => console.warn('round call failed', e));
@@ -90,12 +134,8 @@ export function GameFrame({
       if (!s || finishedRef.current) return;
 
       if (m.type === 'READY') {
-        post('INIT', {
-          session: { sessionId: s.respondent_id },
-          player: { nickname: s.nick },
-          difficulty: { ...s.fixed, totalRounds: TOTAL_ROUNDS, schedule: s.rounds },
-          ui: { showQuitButton: false, autoStart: true, showRoundTotal: false },
-        });
+        readyRef.current = true;
+        sendInit();
       } else if (m.type === 'ROUND_START') {
         const attempt = s.from_attempt + m.payload.round - 1;
         enqueue(async () => {
@@ -130,14 +170,13 @@ export function GameFrame({
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [token, post, enqueue, finish, load]);
+  }, [token, sendInit, enqueue, finish, load]);
 
   // Safari can size the game's canvas before the iframe is laid out, leaving it stretched
   // (only the sky visible). Changing the iframe's height by 1px and back gives the game a
   // 'resize' event, so it measures again. Done twice, shortly after load.
   const [nudged, setNudged] = useState(false);
   const onFrameLoad = useCallback(() => {
-    iframeRef.current?.contentWindow?.focus();
     for (const at of [300, 1500]) {
       setTimeout(() => setNudged(true), at);
       setTimeout(() => setNudged(false), at + 150);
@@ -146,16 +185,39 @@ export function GameFrame({
 
   if (!session) return <Message text="Loading the game..." />;
 
+  const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+
   return (
-    <iframe
-      key={frameKey}
-      ref={iframeRef}
-      src={GAME_URL}
-      title="Driving game"
-      allow="autoplay; fullscreen"
-      onLoad={onFrameLoad}
-      style={{ height: nudged ? 'calc(100dvh - 1px)' : '100dvh' }}
-      className="fixed inset-0 w-screen border-0 bg-black"
-    />
+    <>
+      <iframe
+        key={frameKey}
+        ref={iframeRef}
+        src={GAME_URL}
+        title="Driving game"
+        allow="autoplay; fullscreen"
+        onLoad={onFrameLoad}
+        style={{ height: nudged ? 'calc(100dvh - 1px)' : '100dvh' }}
+        className="fixed inset-0 w-screen border-0 bg-black"
+      />
+      {!started && (
+        <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/90 px-4 text-white">
+          <div className="max-w-md space-y-5 text-center">
+            <p className="text-lg leading-relaxed">
+              {touch
+                ? 'Drive with the buttons on the screen.'
+                : 'Drive with the arrow keys: up to speed up, down to brake, left and right to steer.'}{' '}
+              After each round, press NEXT DELIVERY to go on.
+            </p>
+            <button
+              onClick={start}
+              autoFocus
+              className="w-full rounded-lg bg-orange-500 px-6 py-4 text-xl font-semibold text-white active:scale-95"
+            >
+              Start driving
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
