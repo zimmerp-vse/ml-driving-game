@@ -3,11 +3,13 @@ import StudentPage from './pages/StudentPage';
 import AdminPage from './pages/AdminPage';
 import ScreenPage from './pages/ScreenPage';
 import StudyPage from './pages/StudyPage';
+import SubmitPage from './pages/SubmitPage';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/s/:code" element={<StudentPage />} />
+      <Route path="/s/:code/submit" element={<SubmitPage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/admin/study/:id" element={<StudyPage />} />
       <Route path="/screen/:code" element={<ScreenPage />} />

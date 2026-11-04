@@ -44,6 +44,7 @@ Applied so far (keep this list current):
 | `20261105100000_mlg_allow_rejoin.sql` | Replay for test studies |
 | `20261105110000_mlg_shorter_rounds_delete_study.sql` | shorter-round defaults, delete study |
 | `20261106090000_mlg_progress_exports.sql` | live progress, exports, release and submission switches |
+| `20261107090000_mlg_submissions_reports.sql` | students' files, team submissions, reports (not yet applied) |
 
 ## 2. Supabase: the keys
 

@@ -14,15 +14,20 @@ belong to a study. First use: ML2, block 6, 19.11.2026.
 
 ## Status
 
-Milestones 1 and 2 of the spec (section 11), plus the projector page:
+Milestones 1 to 3 of the spec (section 11):
 
 * join with the country lookup, play with a server-drawn schedule, phases decided by the server;
 * admin: studies (create, open, close, delete, Replay for test studies), and per study
   (`/admin/study/:id`) live progress every 5 s, the four class files with the counts of the
   contract's rules, and the switches "Release data to students" and "Submissions open";
-* projector page `/screen/:code` with QR code and counts.
+* projector page `/screen/:code` with QR code and counts;
+* team page `/s/:code/submit`: the two files once released, upload of predictions with a team
+  PIN, accepted or rejected with reasons, never a score;
+* reports (study page): a running report any time, the final report when the study is closed;
+  participation, the learning curve, accidents by device, the uploads, and the leaderboard (log
+  loss, bootstrap intervals over players, two reference rows); one self-contained HTML file.
 
-Next (milestone 3): the submission page for teams, and the running and final reports.
+Next: the dry run (13.11.).
 
 ## Stack
 
@@ -68,6 +73,10 @@ src/pages/AdminPage.tsx     /admin (studies) and the sign-in gate
 src/pages/StudyPage.tsx     /admin/study/:id (progress, files, switches)
 src/pages/ScreenPage.tsx    /screen/:code (projector)
 src/lib/exports.ts          the four CSV files (rows chosen in SQL: mlgame.export_rows)
+src/pages/SubmitPage.tsx    /s/:code/submit (teams)
+src/lib/submission.ts       reading a predictions file; wording the server's answers
+src/lib/report.ts           report numbers: log loss, reference rows, bootstrap, shares
+src/lib/reportHtml.ts       the report as one HTML file with inline SVG charts
 supabase/migrations/        SQL, applied in the Supabase SQL editor in order
 tests/                      database tests (PGlite), /api/join tests, local mock
 docs/                       spec, data contract, setup

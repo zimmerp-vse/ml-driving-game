@@ -6,6 +6,7 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { AdminGate, Shell, SignOut } from './AdminPage';
 import { buildFiles, download, type CsvFile, type ExportResult } from '../lib/exports';
+import { closeStudy, downloadReport, makeReport, reportFileName, showReport } from '../lib/reportFlow';
 
 interface Study {
   id: string;
@@ -69,6 +70,19 @@ function StudyView({ email }: { email: string }) {
     loadStudy();
   }, [loadStudy]);
 
+  const [reportsVersion, setReportsVersion] = useState(0);
+
+  async function close() {
+    if (!window.confirm('Close the study? Nobody can join or play any more, submissions close, and the final report is made.')) return;
+    try {
+      await closeStudy(id);
+      setReportsVersion((v) => v + 1);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    loadStudy();
+  }
+
   async function setStatus(status: Study['status']) {
     const { error } = await supabase.rpc('mlg_admin_set_status', { p_id: id, p_status: status });
     if (error) setError(error.message);
@@ -115,7 +129,7 @@ function StudyView({ email }: { email: string }) {
           {study.status !== 'open' ? (
             <button onClick={() => setStatus('open')} className="rounded bg-green-700 px-3 py-1.5 text-white">Open</button>
           ) : (
-            <button onClick={() => setStatus('closed')} className="rounded bg-slate-700 px-3 py-1.5 text-white">Close</button>
+            <button onClick={close} className="rounded bg-slate-700 px-3 py-1.5 text-white">Close</button>
           )}
         </div>
       </header>
@@ -123,6 +137,8 @@ function StudyView({ email }: { email: string }) {
       <LiveProgress id={id} />
 
       <Exports id={id} />
+
+      <Reports id={id} code={study.code} version={reportsVersion} />
 
       <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="text-lg font-semibold">Students</h2>
@@ -138,7 +154,12 @@ function StudyView({ email }: { email: string }) {
           label="Submissions open"
           help="Teams can upload predictions. Closing the study also closes submissions."
         />
-        <p className="text-xs text-slate-500">The submission page itself comes with milestone 3.</p>
+        <p className="text-sm">
+          Submission page for teams:{' '}
+          <a href={`/s/${study.code}/submit`} target="_blank" rel="noreferrer" className="font-mono text-blue-700 underline">
+            {window.location.host}/s/{study.code}/submit
+          </a>
+        </p>
       </section>
     </main>
   );
@@ -313,6 +334,87 @@ function Exports({ id }: { id: string }) {
             </div>
           </div>
         </>
+      )}
+    </section>
+  );
+}
+
+interface SavedReport {
+  id: number;
+  kind: 'running' | 'final';
+  created_at: string;
+  size: number;
+}
+
+function Reports({ id, code, version }: { id: string; code: string; version: number }) {
+  const [list, setList] = useState<SavedReport[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.rpc('mlg_admin_list_reports', { p_id: id });
+    if (error) setError(error.message);
+    else setList(data as SavedReport[]);
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load, version]);
+
+  async function makeRunning() {
+    setBusy(true);
+    setError(null);
+    try {
+      await makeReport(id, 'running');
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy(false);
+  }
+
+  async function fetchHtml(r: SavedReport): Promise<string | null> {
+    const { data, error } = await supabase.rpc('mlg_admin_get_report', { p_report_id: r.id });
+    if (error) {
+      setError(error.message);
+      return null;
+    }
+    return data as string;
+  }
+
+  return (
+    <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Reports</h2>
+        <button onClick={makeRunning} disabled={busy} className="rounded bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-50">
+          {busy ? 'Making...' : 'Make running report'}
+        </button>
+      </div>
+      <p className="text-sm text-slate-500">
+        Participation, accidents and the leaderboard of the last accepted files so far. Closing the study makes the final report.
+        Show opens it in a new tab for the projector (full screen: F11, or Ctrl+Cmd+F on a Mac); Download saves one HTML file you can keep after the study is deleted.
+      </p>
+      {error && <p className="rounded bg-red-50 p-3 text-red-800">{error}</p>}
+      {list.length === 0 ? (
+        <p className="text-sm text-slate-500">No reports yet.</p>
+      ) : (
+        <table className="w-full text-left text-sm">
+          <tbody>
+            {list.map((r) => (
+              <tr key={r.id} className="border-b last:border-0">
+                <td className="py-2 font-medium">{r.kind === 'final' ? 'Final report' : 'Running report'}</td>
+                <td className="text-slate-600">{new Date(r.created_at).toLocaleString()}</td>
+                <td className="text-slate-500">{Math.round(r.size / 1024)} KB</td>
+                <td className="space-x-2 text-right">
+                  <button onClick={async () => { const h = await fetchHtml(r); if (h) showReport(h); }}
+                    className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50">Show</button>
+                  <button onClick={async () => { const h = await fetchHtml(r); if (h) downloadReport(h, reportFileName(code, r.kind, new Date(r.created_at))); }}
+                    className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50">Download</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </section>
   );

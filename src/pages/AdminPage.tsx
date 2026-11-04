@@ -6,6 +6,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_CONSENT_TEXT } from '../lib/defaults';
+import { closeStudy } from '../lib/reportFlow';
 
 interface StudyRow {
   id: string;
@@ -123,6 +124,16 @@ function Studies({ email }: { email: string }) {
     refresh();
   }
 
+  async function close(id: string) {
+    if (!window.confirm('Close the study? Nobody can join or play any more, submissions close, and the final report is made (see the study page).')) return;
+    try {
+      await closeStudy(id);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    refresh();
+  }
+
   async function setAllowRejoin(id: string, allow: boolean) {
     const { error } = await supabase.rpc('mlg_admin_set_allow_rejoin', { p_id: id, p_allow: allow });
     if (error) setError(error.message);
@@ -204,7 +215,7 @@ function Studies({ email }: { email: string }) {
                   </button>
                 )}
                 {s.status === 'open' && (
-                  <button onClick={() => setStatus(s.id, 'closed')} className="rounded bg-slate-700 px-2 py-1 text-white">
+                  <button onClick={() => close(s.id)} className="rounded bg-slate-700 px-2 py-1 text-white">
                     Close
                   </button>
                 )}
