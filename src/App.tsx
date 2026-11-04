@@ -1,12 +1,14 @@
 import { Routes, Route } from 'react-router-dom';
 import StudentPage from './pages/StudentPage';
 import AdminPage from './pages/AdminPage';
+import ScreenPage from './pages/ScreenPage';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/s/:code" element={<StudentPage />} />
       <Route path="/admin" element={<AdminPage />} />
+      <Route path="/screen/:code" element={<ScreenPage />} />
       <Route path="*" element={<Message text="Please open the link or scan the QR code your teacher shows." />} />
     </Routes>
   );

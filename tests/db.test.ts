@@ -196,6 +196,15 @@ describe('schedule and phases', () => {
     expect(await call(db, 'anon', 'public.mlg_round_start($1, 1)', ['nope'])).toEqual({ ok: false, error: 'unknown_token' });
   });
 
+  it('the projector page gets counts only, no personal data', async () => {
+    const info = await call(db, 'anon', 'public.mlg_screen_info($1)', [code]);
+    // carol is done; alice, bob, dave, erin joined and were active just now.
+    expect(info).toEqual({ status: 'open', title: 'ML2 block 6', joined: 5, playing: 4, done: 1 });
+    await db.query(`update mlgame.respondents set last_activity_at = now() - interval '10 minutes' where nick = 'bob'`);
+    expect((await call(db, 'anon', 'public.mlg_screen_info($1)', [code])).playing).toBe(3);
+    expect(await call(db, 'anon', 'public.mlg_screen_info($1)', ['NOPE99'])).toEqual({ status: 'not_found' });
+  });
+
   it('closing a study stops rounds and joins', async () => {
     await call(db, 'authenticated', `public.mlg_admin_set_status($1, 'closed')`, [studyId], ADMIN);
     expect(await join('gina')).toEqual({ ok: false, error: 'not_open' });

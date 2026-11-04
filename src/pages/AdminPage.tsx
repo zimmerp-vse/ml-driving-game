@@ -131,7 +131,7 @@ function Studies({ email }: { email: string }) {
       <table className="w-full text-left text-sm">
         <thead className="border-b text-slate-500">
           <tr>
-            <th className="py-2">Title</th><th>Code</th><th>Status</th><th>Joined</th><th>Join link</th><th></th>
+            <th className="py-2">Title</th><th>Code</th><th>Status</th><th>Joined</th><th>Links</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -144,6 +144,9 @@ function Studies({ email }: { email: string }) {
               <td>
                 <a href={joinUrl(s.code)} target="_blank" rel="noreferrer" className="text-blue-700 underline">
                   /s/{s.code}
+                </a>{' '}
+                <a href={`/screen/${s.code}`} target="_blank" rel="noreferrer" className="ml-2 text-blue-700 underline">
+                  QR screen
                 </a>
               </td>
               <td className="space-x-2 text-right">
