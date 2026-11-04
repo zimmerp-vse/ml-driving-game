@@ -201,16 +201,28 @@ export function GameFrame({
         className="fixed inset-0 w-screen border-0 bg-black"
       />
       {!started && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900 px-4 text-white">
-          <div className="w-full max-w-md space-y-8 text-center">
-            <ControlsHint touch={!!touch} />
-            <button
-              onClick={start}
-              autoFocus
-              className="w-full rounded-lg bg-orange-500 px-6 py-4 text-xl font-semibold text-white active:scale-95"
-            >
-              Start driving
-            </button>
+        // Landscape: the poster fills the screen, controls on a dark panel over its lower part.
+        // Portrait (phones): the poster as a banner on top, controls below.
+        <div className="fixed inset-0 z-10 overflow-y-auto bg-slate-950 text-white">
+          <img
+            src="/img/poster-1600.jpg"
+            srcSet="/img/poster-900.jpg 900w, /img/poster-1600.jpg 1600w"
+            sizes="100vw"
+            alt="Dash Delivery"
+            className="w-full object-cover object-top portrait:aspect-video landscape:absolute landscape:inset-0 landscape:h-full"
+          />
+          <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-b from-transparent via-transparent to-slate-950/80 landscape:block" />
+          <div className="relative flex justify-center px-4 py-6 landscape:min-h-full landscape:items-end landscape:pb-[6vh]">
+            <div className="w-full max-w-md space-y-6 rounded-2xl text-center landscape:bg-slate-950/80 landscape:p-6 landscape:shadow-2xl landscape:backdrop-blur-sm">
+              <ControlsHint touch={!!touch} />
+              <button
+                onClick={start}
+                autoFocus
+                className="w-full rounded-lg bg-orange-500 px-6 py-4 text-xl font-semibold text-white shadow-lg shadow-orange-900/40 active:scale-95"
+              >
+                Start driving
+              </button>
+            </div>
           </div>
         </div>
       )}

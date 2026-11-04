@@ -45,20 +45,32 @@ export default function ScreenPage() {
   }, [code]);
 
   if (info?.status === 'not_found') {
-    return <main className="flex min-h-full items-center justify-center text-3xl">Unknown study code: {code}</main>;
+    return <main className="flex min-h-full items-center justify-center bg-slate-950 text-3xl text-white">Unknown study code: {code}</main>;
   }
 
   return (
-    <main className="flex min-h-full flex-col items-center justify-center gap-8 bg-white p-6 lg:flex-row lg:gap-16">
-      <div
-        className="aspect-square w-[min(80vw,70vh)] max-w-[720px]"
-        aria-label={`QR code for ${displayUrl}`}
-        dangerouslySetInnerHTML={{ __html: svg }}
+    // The game artwork as background; the QR code always sits on solid white with a margin,
+    // so it stays readable from the back of the room.
+    <main className="relative flex min-h-full flex-col items-center justify-center gap-8 overflow-hidden bg-slate-950 p-6 text-white lg:flex-row lg:gap-16">
+      <img
+        src="/img/synthwave-1600.jpg"
+        srcSet="/img/synthwave-900.jpg 900w, /img/synthwave-1600.jpg 1600w"
+        sizes="100vw"
+        alt=""
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
-      <div className="max-w-xl space-y-6 text-center lg:text-left">
+      <div className="pointer-events-none absolute inset-0 bg-slate-950/35" />
+      <div className="relative rounded-3xl bg-white p-[min(3vw,3vh)] shadow-2xl">
+        <div
+          className="aspect-square w-[min(75vw,64vh)] max-w-[680px]"
+          aria-label={`QR code for ${displayUrl}`}
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      </div>
+      <div className="relative max-w-xl space-y-6 rounded-3xl bg-slate-950/75 p-8 text-center shadow-2xl backdrop-blur-sm lg:text-left">
         {info?.title && <h1 className="text-4xl font-semibold lg:text-5xl">{info.title}</h1>}
         <div>
-          <p className="text-2xl text-slate-600">Scan the code or open</p>
+          <p className="text-2xl text-slate-300">Scan the code or open</p>
           {/* Wrap only between the host and /s/CODE, never inside the code. */}
           <p className="font-mono text-3xl font-semibold lg:text-4xl">
             <span className="whitespace-nowrap">{window.location.host}</span>
@@ -78,7 +90,7 @@ export default function ScreenPage() {
             <Count label="Done" value={info.done} />
           </dl>
         )}
-        {offline && <p className="text-lg text-slate-400">Connection problem. Retrying...</p>}
+        {offline && <p className="text-lg text-slate-300">Connection problem. Retrying...</p>}
       </div>
     </main>
   );
@@ -87,7 +99,7 @@ export default function ScreenPage() {
 function Count({ label, value }: { label: string; value?: number }) {
   return (
     <div>
-      <dt className="text-xl text-slate-500">{label}</dt>
+      <dt className="text-xl text-slate-300">{label}</dt>
       <dd className="text-6xl font-semibold tabular-nums">{value ?? 0}</dd>
     </div>
   );
