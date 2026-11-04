@@ -14,10 +14,15 @@ belong to a study. First use: ML2, block 6, 19.11.2026.
 
 ## Status
 
-Milestone 1 of the spec (section 11): schema and functions, join with the country
-lookup, play with a server-drawn schedule, phases decided by the server, a minimal
-admin (sign in, create, open, close). Next: live progress and exports (milestone 2),
-submissions, reports and the projector page (milestone 3).
+Milestones 1 and 2 of the spec (section 11), plus the projector page:
+
+* join with the country lookup, play with a server-drawn schedule, phases decided by the server;
+* admin: studies (create, open, close, delete, Replay for test studies), and per study
+  (`/admin/study/:id`) live progress every 5 s, the four class files with the counts of the
+  contract's rules, and the switches "Release data to students" and "Submissions open";
+* projector page `/screen/:code` with QR code and counts.
+
+Next (milestone 3): the submission page for teams, and the running and final reports.
 
 ## Stack
 
@@ -59,7 +64,10 @@ student browser ──/api/join──▶ Vercel function ──mlg_join_study (s
 api/join.ts                 Vercel function: country lookup, forwards the join
 src/pages/StudentPage.tsx   /s/:code: join form, game, done
 src/components/GameFrame.tsx  the iframe and the game protocol
-src/pages/AdminPage.tsx     /admin
+src/pages/AdminPage.tsx     /admin (studies) and the sign-in gate
+src/pages/StudyPage.tsx     /admin/study/:id (progress, files, switches)
+src/pages/ScreenPage.tsx    /screen/:code (projector)
+src/lib/exports.ts          the four CSV files (rows chosen in SQL: mlgame.export_rows)
 supabase/migrations/        SQL, applied in the Supabase SQL editor in order
 tests/                      database tests (PGlite), /api/join tests, local mock
 docs/                       spec, data contract, setup
@@ -83,7 +91,8 @@ npm run dev:local   # http://localhost:5173/s/TEST01
 
 `dev:local` embeds the game from `http://localhost:8080/game`; run speedy-deliveries
 locally (`npx vite --port 8080` in that repo, with any `VITE_SUPABASE_*` values).
-`http://localhost:54321/debug/rounds` shows what the mock stored.
+`http://localhost:54321/debug/rounds` shows what the mock stored. The mock also has a
+local-only admin sign-in (credentials in `tests/mock-supabase.ts`), so `/admin` works locally.
 
 Against the real project: copy `.env.example` to `.env.local`, fill in the values,
 `npm run dev`. The dev server serves `/api/join` itself and simulates the country

@@ -1,8 +1,9 @@
 // /admin: sign in (the existing Charming Ride account), list, create, open and close studies.
-// Milestone 1 scope; live progress, exports and reports come later (app_spec section 11).
+// Each study's title links to its page (/admin/study/:id): live progress, exports, switches.
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_CONSENT_TEXT } from '../lib/defaults';
 
@@ -17,6 +18,11 @@ interface StudyRow {
 }
 
 export default function AdminPage() {
+  return <AdminGate>{(email) => <Studies email={email} />}</AdminGate>;
+}
+
+/** Renders children only for a signed-in admin; otherwise the sign-in form or a refusal. */
+export function AdminGate({ children }: { children: (email: string) => React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
@@ -41,14 +47,14 @@ export default function AdminPage() {
         <SignOut />
       </Shell>
     );
-  return <Studies email={session.user.email ?? ''} />;
+  return <>{children(session.user.email ?? '')}</>;
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+export function Shell({ children }: { children: React.ReactNode }) {
   return <main className="mx-auto max-w-4xl space-y-4 px-4 py-8">{children}</main>;
 }
 
-function SignOut() {
+export function SignOut() {
   return (
     <button onClick={() => supabase.auth.signOut()} className="text-sm text-blue-700 underline">
       Sign out
@@ -167,7 +173,9 @@ function Studies({ email }: { email: string }) {
         <tbody>
           {studies.map((s) => (
             <tr key={s.id} className="border-b">
-              <td className="py-2">{s.title}</td>
+              <td className="py-2">
+                <Link to={`/admin/study/${s.id}`} className="font-medium text-blue-700 underline">{s.title}</Link>
+              </td>
               <td className="whitespace-nowrap text-slate-600">{created(s.created_at)}</td>
               <td className="font-mono">{s.code}</td>
               <td>{statusLabel[s.status]}</td>

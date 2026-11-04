@@ -31,7 +31,19 @@ its own schema `mlgame` and functions named `mlg_*`; Charming Ride is not change
    ```
 
 Later migrations (new files in `supabase/migrations/`) are applied the same way, in
-file-name order. Each file is run once.
+file-name order. Each file is run once; running one again only fails with "already
+exists" and changes nothing. If the app then reports a function as missing, run
+`notify pgrst, 'reload schema';` once, so the API picks it up.
+
+Applied so far (keep this list current):
+
+| file | what |
+|---|---|
+| `20261104120000_mlgame_schema.sql` | schema, join, rounds, phases, admin basics |
+| `20261105090000_mlg_screen_info.sql` | counts for the projector page |
+| `20261105100000_mlg_allow_rejoin.sql` | Replay for test studies |
+| `20261105110000_mlg_shorter_rounds_delete_study.sql` | shorter-round defaults, delete study |
+| `20261106090000_mlg_progress_exports.sql` | live progress, exports, release and submission switches (not yet applied) |
 
 ## 2. Supabase: the keys
 
