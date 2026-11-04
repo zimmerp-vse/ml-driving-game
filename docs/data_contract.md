@@ -1,4 +1,4 @@
-# Driving game: data contract, v05 (4.11.2026)
+# Driving game: data contract, v06 (4.11.2026)
 
 *Master copy (since 4.11.2026). The ML2 project keeps a pointer. Changes to it affect the ML2 notebooks and scorer, so they are agreed with Pavel and noted under Versions.*
 
@@ -29,15 +29,15 @@ The contract between the app **`ml-driving-game`** (see `app_spec.md`; usable in
 | `fixed` | `malfunctionProbability: 0`, `deliveryDistance: 200` | conditions sent to the game unchanged for every round; `deliveryDistance` is the road length of one delivery (the game's own default is 300) |
 | `seed` | random | seed of the condition draws, stored, so the draws can be reproduced |
 
-Varied conditions, drawn **independently for every round**, uniform on the given scale. v01 were Charming Ride's T3 ranges. v02 makes rounds about a third shorter: the road is a third shorter (`deliveryDistance` 200), the time limit a third shorter, and the spawn rates 1.5 times higher, so a round meets about as many hazards as before. The dry run decides the final ones (aim: an accident share between about 0.3 and 0.5).
+Varied conditions, drawn **independently for every round**, uniform on the given scale. v01 were Charming Ride's T3 ranges. v02 made rounds about a third shorter: the road a third shorter (`deliveryDistance` 200), the time limit a third shorter, and the spawn rates 1.5 times higher. That proved too hard (more crashes than deliveries), so v03 keeps the shorter road and time limit but returns to the v01 spawn rates: hazards are as far apart as in the original game, and a round meets about a third fewer of them. The dry run decides the final ones (aim: an accident share between about 0.3 and 0.5).
 
-| condition (game name) | column in the files | range v02 (default) | range v01 |
-|---|---|---|---|
-| `tripDurationMs` | `trip_seconds` | 13 to 33 s | 20 to 50 s |
-| `carSpawnRate` | `car_rate` | 0.015 to 0.135 | 0.01 to 0.09 |
-| `obstacleSpawnRate` | `obstacle_rate` | 0.003 to 0.0225 | 0.002 to 0.015 |
-| `pedestrianSpawnRate` | `pedestrian_rate` | 0.0015 to 0.015 | 0.001 to 0.010 |
-| scene index | `scene` | one of the game's 10 scenes, uniform (today the game rotates them by round number, which ties the scene to the attempt; the schedule overrides that) | same |
+| condition (game name) | column in the files | range v03 (default) | range v02 | range v01 |
+|---|---|---|---|---|
+| `tripDurationMs` | `trip_seconds` | 13 to 33 s | 13 to 33 s | 20 to 50 s |
+| `carSpawnRate` | `car_rate` | 0.01 to 0.09 | 0.015 to 0.135 | 0.01 to 0.09 |
+| `obstacleSpawnRate` | `obstacle_rate` | 0.002 to 0.015 | 0.003 to 0.0225 | 0.002 to 0.015 |
+| `pedestrianSpawnRate` | `pedestrian_rate` | 0.001 to 0.010 | 0.0015 to 0.015 | 0.001 to 0.010 |
+| scene index | `scene` | one of the game's 10 scenes, uniform (today the game rotates them by round number, which ties the scene to the attempt; the schedule overrides that) | same | same |
 
 ## 3. What the app logs per round (raw, admin only)
 
@@ -119,6 +119,7 @@ Writes the four files of sections 3 and 4 for an invented class, from the same p
 
 * v01, 3.11.2026: first draft.
 * v02, 3.11.2026 (Pavel): repo `ml-driving-game`; both devices allowed, device a feature; `country` added (from the IP at join, IP not stored; no-variance feature as part of the lesson); no score ever shown to teams; leaderboard through admin reports, running and final.
+* v06, 4.11.2026 (Pavel): section 2, an easier game: ranges v03 (spawn rates back to v01; the shorter road and time limit of v02 stay). No change to columns or formats; the synthetic generator's defaults should follow.
 * v05, 4.11.2026 (Pavel): section 5, the clipping rule is confirmed: p clipped to [0.001, 0.999] for scoring; exact 0 or 1 accepted with a warning; a file with only 0 and 1 rejected. No change to formats.
 * v04, 4.11.2026 (agreed with Pavel): section 2, shorter rounds by default: `fixed` adds `deliveryDistance: 200`; ranges v02 (time limit 13 to 33 s, spawn rates 1.5 times v01). No change to columns or formats; the synthetic generator's defaults should follow.
 * v03, 4.11.2026 (agreed with Pavel): master copy moved to the `ml-driving-game` repo; section 4.1, `attempt`: gaps also come from rounds interrupted by a page reload. No change to columns or formats.

@@ -45,6 +45,7 @@ Applied so far (keep this list current):
 | `20261105110000_mlg_shorter_rounds_delete_study.sql` | shorter-round defaults, delete study |
 | `20261106090000_mlg_progress_exports.sql` | live progress, exports, release and submission switches |
 | `20261107090000_mlg_submissions_reports.sql` | students' files, team submissions, reports |
+| `20261108090000_mlg_easier_defaults.sql` | easier default spawn rates for new studies (not yet applied) |
 
 ## 2. Supabase: the keys
 

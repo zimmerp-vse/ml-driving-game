@@ -105,8 +105,8 @@ describe('schedule and phases', () => {
     for (const c of s.rounds) {
       expect(c.tripDurationMs).toBeGreaterThanOrEqual(13000);
       expect(c.tripDurationMs).toBeLessThanOrEqual(33000);
-      expect(c.carSpawnRate).toBeGreaterThanOrEqual(0.015);
-      expect(c.carSpawnRate).toBeLessThanOrEqual(0.135);
+      expect(c.carSpawnRate).toBeGreaterThanOrEqual(0.01);
+      expect(c.carSpawnRate).toBeLessThanOrEqual(0.09);
       expect(c.sceneIndex).toBeGreaterThanOrEqual(0);
       expect(c.sceneIndex).toBeLessThanOrEqual(9);
     }
@@ -218,11 +218,13 @@ describe('schedule and phases', () => {
     await expect(call(db, 'anon', 'public.mlg_admin_list_studies()')).rejects.toThrow(/permission denied/);
   });
 
-  it('new studies get the shorter-round defaults (contract v04)', async () => {
+  it('new studies get the defaults of contract v06 (shorter rounds, v01 spawn rates)', async () => {
     const st = await call(db, 'authenticated', `public.mlg_admin_create_study('defaults', 'c')`, [], ADMIN);
     expect(st.params.fixed).toEqual({ malfunctionProbability: 0, deliveryDistance: 200 });
     expect(st.params.ranges.trip_seconds).toEqual({ min: 13, max: 33, scale: 'linear' });
-    expect(st.params.ranges.car_rate).toEqual({ min: 0.015, max: 0.135, scale: 'linear' });
+    expect(st.params.ranges.car_rate).toEqual({ min: 0.01, max: 0.09, scale: 'linear' });
+    expect(st.params.ranges.obstacle_rate).toEqual({ min: 0.002, max: 0.015, scale: 'linear' });
+    expect(st.params.ranges.pedestrian_rate).toEqual({ min: 0.001, max: 0.010, scale: 'linear' });
     await call(db, 'authenticated', `public.mlg_admin_set_status($1, 'open')`, [st.id], ADMIN);
     const r = await call(db, 'service_role', `public.mlg_join_study($1, 'shorty', null, null, 'mouse', 1, 1, null)`, [st.code]);
     const s = await call(db, 'anon', 'public.mlg_start_schedule($1, 50)', [r.token]);

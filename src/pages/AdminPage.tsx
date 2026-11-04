@@ -245,7 +245,7 @@ function Studies({ email }: { email: string }) {
           <input value={trainingSeconds} onChange={(e) => setTrainingSeconds(e.target.value)} inputMode="numeric"
             className="ml-2 w-24 rounded border border-slate-300 px-2 py-1" />
         </label>
-        <p className="text-xs text-slate-500">Other parameters use the defaults of the data contract (5 test rounds, ranges v02).</p>
+        <p className="text-xs text-slate-500">Other parameters use the defaults of the data contract (5 test rounds, ranges v03).</p>
         <p className="text-xs text-slate-500">For a test study, tick Replay in the list: a player who is done can then join again with a new nick. Leave it off in class.</p>
         <button className="rounded bg-blue-700 px-4 py-2 font-semibold text-white">Create study</button>
         <p className="text-xs text-slate-500">Students can join after you click Open in the list.</p>
