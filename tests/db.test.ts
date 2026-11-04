@@ -205,6 +205,19 @@ describe('schedule and phases', () => {
     expect(await call(db, 'anon', 'public.mlg_screen_info($1)', ['NOPE99'])).toEqual({ status: 'not_found' });
   });
 
+  it('the admin can let players join again; the join page sees the setting', async () => {
+    expect((await call(db, 'anon', 'public.mlg_study_info($1)', [code])).allow_rejoin).toBe(false);
+    await expect(call(db, 'anon', 'public.mlg_admin_set_allow_rejoin($1, true)', [studyId])).rejects.toThrow(/permission denied/);
+    await expect(call(db, 'authenticated', 'public.mlg_admin_set_allow_rejoin($1, true)', [studyId], OTHER)).rejects.toThrow(/not authorized/);
+    const st = await call(db, 'authenticated', 'public.mlg_admin_set_allow_rejoin($1, true)', [studyId], ADMIN);
+    expect(st.allow_rejoin).toBe(true);
+    expect((await call(db, 'anon', 'public.mlg_study_info($1)', [code])).allow_rejoin).toBe(true);
+    const list = await call(db, 'authenticated', 'public.mlg_admin_list_studies()', [], ADMIN);
+    expect(list.find((s: any) => s.id === studyId).allow_rejoin).toBe(true);
+    // Replacing functions kept their grants: anon still cannot list studies.
+    await expect(call(db, 'anon', 'public.mlg_admin_list_studies()')).rejects.toThrow(/permission denied/);
+  });
+
   it('closing a study stops rounds and joins', async () => {
     await call(db, 'authenticated', `public.mlg_admin_set_status($1, 'closed')`, [studyId], ADMIN);
     expect(await join('gina')).toEqual({ ok: false, error: 'not_open' });

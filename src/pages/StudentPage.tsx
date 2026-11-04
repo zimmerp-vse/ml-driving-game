@@ -12,8 +12,8 @@ type View =
   | { kind: 'not_open' }
   | { kind: 'error' }
   | { kind: 'form'; info: StudyInfo }
-  | { kind: 'play'; token: string }
-  | { kind: 'done' };
+  | { kind: 'play'; token: string; info: StudyInfo }
+  | { kind: 'done'; info: StudyInfo };
 
 export const TEXT = {
   notOpen: 'This study is not open.',
@@ -37,9 +37,9 @@ export default function StudentPage() {
           const pos = await withRetry(() => resume(token));
           if (cancelled) return;
           if (pos.ok) {
-            if (pos.done) return setView({ kind: 'done' });
+            if (pos.done) return setView({ kind: 'done', info });
             if (pos.study_status !== 'open') return setView({ kind: 'not_open' });
-            return setView({ kind: 'play', token });
+            return setView({ kind: 'play', token, info });
           }
           clearToken(code);
         }
@@ -61,7 +61,21 @@ export default function StudentPage() {
     case 'error':
       return <Message text={TEXT.error} />;
     case 'done':
-      return <Message text={TEXT.done} />;
+      return (
+        <Message text={TEXT.done}>
+          {view.info.status === 'open' && view.info.allow_rejoin && (
+            <button
+              onClick={() => {
+                clearToken(code);
+                setView({ kind: 'form', info: view.info });
+              }}
+              className="mx-auto mt-8 rounded-lg border border-slate-300 bg-white px-5 py-3 text-base"
+            >
+              Play again as a new player
+            </button>
+          )}
+        </Message>
+      );
     case 'form':
       return (
         <JoinForm
@@ -69,7 +83,7 @@ export default function StudentPage() {
           info={view.info}
           onJoined={(token) => {
             saveToken(code, token);
-            setView({ kind: 'play', token });
+            setView({ kind: 'play', token, info: view.info });
           }}
           onNotOpen={() => setView({ kind: 'not_open' })}
         />
@@ -78,7 +92,7 @@ export default function StudentPage() {
       return (
         <GameFrame
           token={view.token}
-          onDone={() => setView({ kind: 'done' })}
+          onDone={() => setView({ kind: 'done', info: view.info })}
           onNotOpen={() => setView({ kind: 'not_open' })}
           onError={() => setView({ kind: 'error' })}
         />

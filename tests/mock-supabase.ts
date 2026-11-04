@@ -22,6 +22,8 @@ await db.query(
            'open', mlgame.default_params() || $1::jsonb)`,
   [process.env.MOCK_PARAMS ?? '{"training_seconds": 60}'],
 );
+// The local test study lets a finished player join again (see migration 20261105100000).
+await db.query(`update mlgame.studies set allow_rejoin = true where code = 'TEST01'`);
 
 const cors = {
   'access-control-allow-origin': '*',

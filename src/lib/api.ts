@@ -8,6 +8,8 @@ export interface StudyInfo {
   status: StudyStatus;
   title?: string;
   consent_text?: string;
+  /** Test studies: a player who is done may join again with a new nick. */
+  allow_rejoin?: boolean;
 }
 
 export interface Position {

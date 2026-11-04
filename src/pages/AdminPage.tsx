@@ -11,6 +11,7 @@ interface StudyRow {
   code: string;
   title: string;
   status: 'draft' | 'open' | 'closed';
+  allow_rejoin: boolean;
   created_at: string;
   joined: number;
 }
@@ -116,6 +117,12 @@ function Studies({ email }: { email: string }) {
     refresh();
   }
 
+  async function setAllowRejoin(id: string, allow: boolean) {
+    const { error } = await supabase.rpc('mlg_admin_set_allow_rejoin', { p_id: id, p_allow: allow });
+    if (error) setError(error.message);
+    refresh();
+  }
+
   const joinUrl = (code: string) => `${window.location.origin}/s/${code}`;
 
   return (
@@ -131,7 +138,7 @@ function Studies({ email }: { email: string }) {
       <table className="w-full text-left text-sm">
         <thead className="border-b text-slate-500">
           <tr>
-            <th className="py-2">Title</th><th>Code</th><th>Status</th><th>Joined</th><th>Links</th><th></th>
+            <th className="py-2">Title</th><th>Code</th><th>Status</th><th>Joined</th><th title="Testing: a player who is done may join again with a new nick">Replay</th><th>Links</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -141,6 +148,15 @@ function Studies({ email }: { email: string }) {
               <td className="font-mono">{s.code}</td>
               <td>{s.status}</td>
               <td>{s.joined}</td>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={s.allow_rejoin}
+                  onChange={(e) => setAllowRejoin(s.id, e.target.checked)}
+                  title="Testing: a player who is done may join again with a new nick"
+                  className="h-4 w-4"
+                />
+              </td>
               <td>
                 <a href={joinUrl(s.code)} target="_blank" rel="noreferrer" className="text-blue-700 underline">
                   /s/{s.code}
@@ -164,7 +180,7 @@ function Studies({ email }: { email: string }) {
             </tr>
           ))}
           {studies.length === 0 && (
-            <tr><td colSpan={6} className="py-4 text-slate-500">No studies yet.</td></tr>
+            <tr><td colSpan={7} className="py-4 text-slate-500">No studies yet.</td></tr>
           )}
         </tbody>
       </table>
@@ -184,6 +200,7 @@ function Studies({ email }: { email: string }) {
             className="ml-2 w-24 rounded border border-slate-300 px-2 py-1" />
         </label>
         <p className="text-xs text-slate-500">Other parameters use the defaults of the data contract (5 test rounds, ranges v01).</p>
+        <p className="text-xs text-slate-500">For a test study, tick Replay in the list: a player who is done can then join again with a new nick. Leave it off in class.</p>
         <button className="rounded bg-blue-700 px-4 py-2 font-semibold text-white">Create (as draft)</button>
       </form>
     </Shell>
