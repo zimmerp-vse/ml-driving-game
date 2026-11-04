@@ -123,7 +123,30 @@ function Studies({ email }: { email: string }) {
     refresh();
   }
 
+  // Deleting removes the study and everything in it. With players, the code must be typed.
+  async function remove(s: StudyRow) {
+    let confirmCode: string | null = null;
+    if (s.joined > 0) {
+      confirmCode = window.prompt(
+        `Delete "${s.title}" and the data of its ${s.joined} player(s)? This cannot be undone.\n\n` +
+          `Type the study code ${s.code} to confirm.`,
+      );
+      if (confirmCode === null) return;
+      if (confirmCode.trim().toUpperCase() !== s.code) return setError('The code did not match. Nothing was deleted.');
+    } else if (!window.confirm(`Delete "${s.title}"? It has no players.`)) {
+      return;
+    }
+    const { data, error } = await supabase.rpc('mlg_admin_delete_study', { p_id: s.id, p_confirm_code: confirmCode });
+    if (error) setError(error.message);
+    else if (!data?.deleted) setError('The code did not match. Nothing was deleted.');
+    else setError(null);
+    refresh();
+  }
+
   const joinUrl = (code: string) => `${window.location.origin}/s/${code}`;
+  const statusLabel = { draft: 'Not open yet', open: 'Open', closed: 'Closed' } as const;
+  const created = (iso: string) =>
+    new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   return (
     <Shell>
@@ -138,15 +161,16 @@ function Studies({ email }: { email: string }) {
       <table className="w-full text-left text-sm">
         <thead className="border-b text-slate-500">
           <tr>
-            <th className="py-2">Title</th><th>Code</th><th>Status</th><th>Joined</th><th title="Testing: a player who is done may join again with a new nick">Replay</th><th>Links</th><th></th>
+            <th className="py-2">Title</th><th>Created</th><th>Code</th><th>Status</th><th>Joined</th><th title="Testing: a player who is done may join again with a new nick">Replay</th><th>Links</th><th></th>
           </tr>
         </thead>
         <tbody>
           {studies.map((s) => (
             <tr key={s.id} className="border-b">
               <td className="py-2">{s.title}</td>
+              <td className="whitespace-nowrap text-slate-600">{created(s.created_at)}</td>
               <td className="font-mono">{s.code}</td>
-              <td>{s.status}</td>
+              <td>{statusLabel[s.status]}</td>
               <td>{s.joined}</td>
               <td>
                 <input
@@ -176,11 +200,14 @@ function Studies({ email }: { email: string }) {
                     Close
                   </button>
                 )}
+                <button onClick={() => remove(s)} className="rounded border border-red-300 px-2 py-1 text-red-700 hover:bg-red-50">
+                  Delete
+                </button>
               </td>
             </tr>
           ))}
           {studies.length === 0 && (
-            <tr><td colSpan={7} className="py-4 text-slate-500">No studies yet.</td></tr>
+            <tr><td colSpan={8} className="py-4 text-slate-500">No studies yet.</td></tr>
           )}
         </tbody>
       </table>
@@ -199,9 +226,10 @@ function Studies({ email }: { email: string }) {
           <input value={trainingSeconds} onChange={(e) => setTrainingSeconds(e.target.value)} inputMode="numeric"
             className="ml-2 w-24 rounded border border-slate-300 px-2 py-1" />
         </label>
-        <p className="text-xs text-slate-500">Other parameters use the defaults of the data contract (5 test rounds, ranges v01).</p>
+        <p className="text-xs text-slate-500">Other parameters use the defaults of the data contract (5 test rounds, ranges v02).</p>
         <p className="text-xs text-slate-500">For a test study, tick Replay in the list: a player who is done can then join again with a new nick. Leave it off in class.</p>
-        <button className="rounded bg-blue-700 px-4 py-2 font-semibold text-white">Create (as draft)</button>
+        <button className="rounded bg-blue-700 px-4 py-2 font-semibold text-white">Create study</button>
+        <p className="text-xs text-slate-500">Students can join after you click Open in the list.</p>
       </form>
     </Shell>
   );

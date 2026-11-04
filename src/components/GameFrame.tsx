@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GAME_ORIGIN, GAME_URL } from '../lib/defaults';
 import { roundEnd, roundStart, startSchedule, withRetry, type ScheduleResult } from '../lib/api';
 import { Message } from '../App';
+import { ControlsHint } from './ControlsHint';
 
 const SOURCE = 'dash-delivery';
 const PROTOCOL_VERSION = 1;
@@ -200,14 +201,9 @@ export function GameFrame({
         className="fixed inset-0 w-screen border-0 bg-black"
       />
       {!started && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/90 px-4 text-white">
-          <div className="max-w-md space-y-5 text-center">
-            <p className="text-lg leading-relaxed">
-              {touch
-                ? 'Drive with the buttons on the screen.'
-                : 'Drive with the arrow keys: up to speed up, down to brake, left and right to steer.'}{' '}
-              After each round, press NEXT DELIVERY to go on.
-            </p>
+        <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900 px-4 text-white">
+          <div className="w-full max-w-md space-y-8 text-center">
+            <ControlsHint touch={!!touch} />
             <button
               onClick={start}
               autoFocus

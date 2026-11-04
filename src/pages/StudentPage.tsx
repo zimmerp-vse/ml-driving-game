@@ -18,7 +18,7 @@ type View =
 export const TEXT = {
   notOpen: 'This study is not open.',
   error: 'Something went wrong. Please check your connection and reload the page.',
-  done: 'Done, thank you. Keep this tab open until the teacher says otherwise.',
+  done: 'Done, thank you! You can close this page now. Please wait for the teacher.',
   loading: 'Loading...',
 };
 

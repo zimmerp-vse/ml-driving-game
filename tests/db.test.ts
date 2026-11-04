@@ -100,13 +100,13 @@ describe('schedule and phases', () => {
   it('draws a schedule within the ranges, reproducibly', async () => {
     token = (await join('carol')).token;
     const s = await call(db, 'anon', 'public.mlg_start_schedule($1, 80)', [token]);
-    expect(s).toMatchObject({ ok: true, from_attempt: 1, next_attempt: 1, done: false, fixed: { malfunctionProbability: 0 } });
+    expect(s).toMatchObject({ ok: true, from_attempt: 1, next_attempt: 1, done: false, fixed: { malfunctionProbability: 0, deliveryDistance: 200 } });
     expect(s.rounds).toHaveLength(80);
     for (const c of s.rounds) {
-      expect(c.tripDurationMs).toBeGreaterThanOrEqual(20000);
-      expect(c.tripDurationMs).toBeLessThanOrEqual(50000);
-      expect(c.carSpawnRate).toBeGreaterThanOrEqual(0.01);
-      expect(c.carSpawnRate).toBeLessThanOrEqual(0.09);
+      expect(c.tripDurationMs).toBeGreaterThanOrEqual(13000);
+      expect(c.tripDurationMs).toBeLessThanOrEqual(33000);
+      expect(c.carSpawnRate).toBeGreaterThanOrEqual(0.015);
+      expect(c.carSpawnRate).toBeLessThanOrEqual(0.135);
       expect(c.sceneIndex).toBeGreaterThanOrEqual(0);
       expect(c.sceneIndex).toBeLessThanOrEqual(9);
     }
@@ -216,6 +216,43 @@ describe('schedule and phases', () => {
     expect(list.find((s: any) => s.id === studyId).allow_rejoin).toBe(true);
     // Replacing functions kept their grants: anon still cannot list studies.
     await expect(call(db, 'anon', 'public.mlg_admin_list_studies()')).rejects.toThrow(/permission denied/);
+  });
+
+  it('new studies get the shorter-round defaults (contract v04)', async () => {
+    const st = await call(db, 'authenticated', `public.mlg_admin_create_study('defaults', 'c')`, [], ADMIN);
+    expect(st.params.fixed).toEqual({ malfunctionProbability: 0, deliveryDistance: 200 });
+    expect(st.params.ranges.trip_seconds).toEqual({ min: 13, max: 33, scale: 'linear' });
+    expect(st.params.ranges.car_rate).toEqual({ min: 0.015, max: 0.135, scale: 'linear' });
+    await call(db, 'authenticated', `public.mlg_admin_set_status($1, 'open')`, [st.id], ADMIN);
+    const r = await call(db, 'service_role', `public.mlg_join_study($1, 'shorty', null, null, 'mouse', 1, 1, null)`, [st.code]);
+    const s = await call(db, 'anon', 'public.mlg_start_schedule($1, 50)', [r.token]);
+    expect(s.fixed.deliveryDistance).toBe(200);
+    for (const c of s.rounds) {
+      expect(c.tripDurationMs).toBeGreaterThanOrEqual(13000);
+      expect(c.tripDurationMs).toBeLessThanOrEqual(33000);
+    }
+  });
+
+  it('deleting a study: admin only, code needed once players exist, removes everything', async () => {
+    const empty = await call(db, 'authenticated', `public.mlg_admin_create_study('empty', 'c')`, [], ADMIN);
+    await expect(call(db, 'anon', 'public.mlg_admin_delete_study($1)', [empty.id])).rejects.toThrow(/permission denied/);
+    await expect(call(db, 'authenticated', 'public.mlg_admin_delete_study($1)', [empty.id], OTHER)).rejects.toThrow(/not authorized/);
+    expect(await call(db, 'authenticated', 'public.mlg_admin_delete_study($1)', [empty.id], ADMIN)).toEqual({ deleted: true, players: 0 });
+
+    const full = await call(db, 'authenticated', `public.mlg_admin_create_study('full', 'c')`, [], ADMIN);
+    await call(db, 'authenticated', `public.mlg_admin_set_status($1, 'open')`, [full.id], ADMIN);
+    const r = await call(db, 'service_role', `public.mlg_join_study($1, 'gone', null, null, 'mouse', 1, 1, null)`, [full.code]);
+    await roundStart(r.token, 1);
+    await roundEnd(r.token, 1, 'delivered');
+    expect(await call(db, 'authenticated', `public.mlg_admin_delete_study($1, 'WRONG')`, [full.id], ADMIN))
+      .toEqual({ deleted: false, error: 'confirm_code', players: 1 });
+    expect(await call(db, 'authenticated', 'public.mlg_admin_delete_study($1, $2)', [full.id, full.code.toLowerCase()], ADMIN))
+      .toEqual({ deleted: true, players: 1 });
+    const left = (await db.query<any>(
+      `select (select count(*) from mlgame.respondents where study_id = $1)::int as p,
+              (select count(*) from mlgame.rounds where study_id = $1)::int as r,
+              (select count(*) from mlgame.studies where id = $1)::int as s`, [full.id])).rows[0];
+    expect(left).toEqual({ p: 0, r: 0, s: 0 });
   });
 
   it('closing a study stops rounds and joins', async () => {
