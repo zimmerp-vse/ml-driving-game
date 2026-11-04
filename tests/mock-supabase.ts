@@ -88,10 +88,11 @@ createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/debug/rounds') {
     // Local inspection only: what the server stored per round.
     const r = await db.query(
-      `select p.nick, p.device, p.country, r.attempt, r.phase, r.counted, r.test_index, r.outcome,
-              r.conditions, r.applied, r.scene, r.started_at, r.ended_at
+      `select st.code as study_code, p.nick, p.device, p.country, r.attempt, r.phase, r.counted, r.test_index,
+              r.outcome, r.conditions, r.applied, r.scene, r.started_at, r.ended_at
          from mlgame.rounds r join mlgame.respondents p on p.id = r.respondent_id
-        order by p.nick, r.attempt`,
+         join mlgame.studies st on st.id = r.study_id
+        order by st.code, p.nick, r.attempt`,
     );
     return json(res, 200, r.rows);
   }

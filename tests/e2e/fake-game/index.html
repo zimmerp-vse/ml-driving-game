@@ -1,0 +1,52 @@
+<!doctype html>
+<!-- Stand-in for the Dash Delivery game in end-to-end tests. It speaks the game's
+     postMessage protocol (docs/EMBEDDING.md in speedy-deliveries), and the test decides
+     how each round ends by calling window.playRound(outcome) inside this frame. -->
+<html lang="en">
+<head><meta charset="utf-8"><title>Fake game</title></head>
+<body style="margin:0;background:#1e293b;color:#fff;font:16px sans-serif">
+<p id="status" style="padding:16px">fake game: waiting for INIT</p>
+<script>
+  const SRC = 'dash-delivery';
+  let init = null;
+  let round = 0;
+  window.received = [];
+  window.quit = false;
+  const send = (type, payload) => window.parent.postMessage({ source: SRC, type, version: 1, payload }, '*');
+  const status = (t) => { document.getElementById('status').textContent = 'fake game: ' + t; };
+
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.source !== SRC) return;
+    window.received.push(d);
+    if (d.type === 'INIT') {
+      init = d.payload;
+      send('INIT_ACK', { appliedConfig: { totalRounds: init.difficulty.totalRounds }, sessionId: init.session && init.session.sessionId });
+      status('initialised');
+    } else if (d.type === 'QUIT') {
+      window.quit = true;
+      send('GAME_END', { endedReason: 'quit', rounds: [], totals: {} });
+      status('quit');
+    }
+  });
+
+  const conditions = () => init.difficulty.schedule[round - 1];
+  window.startRound = () => {
+    round += 1;
+    const a = conditions();
+    send('ROUND_START', { sessionId: init.session.sessionId, round, scene: 'Scene ' + a.sceneIndex, deliveryType: 'Pizza', startedAt: Date.now(), applied: a });
+    status('round ' + round);
+    return a;
+  };
+  window.endRound = (outcome, timeMs = 12000) => {
+    const a = conditions();
+    send('ROUND_END', { sessionId: init.session.sessionId, round, outcome, timeMs, scene: 'Scene ' + a.sceneIndex,
+                        moneyEarned: 0, moneyLost: 0, moneyBalance: 1000, applied: a });
+  };
+  window.playRound = (outcome) => { window.startRound(); window.endRound(outcome); return round; };
+  window.isReady = () => init !== null;
+
+  send('READY', { protocolVersion: 1 });
+</script>
+</body>
+</html>

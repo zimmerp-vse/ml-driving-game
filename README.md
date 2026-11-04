@@ -88,8 +88,15 @@ Needs Node 20+.
 
 ```bash
 npm install
-npm test            # database tests run the migrations in an in-process Postgres
+npm test            # unit and database tests (the migrations run in an in-process Postgres)
+npx playwright install chromium   # once
+npm run test:e2e    # end-to-end: two simulated players, both phases, a timeout, a resume, admin
 ```
+
+The end-to-end test (`tests/e2e/study.spec.ts`, spec section 10) runs the real app in a real
+browser against the local stand-in database and a stand-in game (`tests/e2e/fake-game`), which
+speaks the game's messages and lets the test decide how each round ends. It starts its own
+servers on ports 54329, 8090 and 5179. The real game is checked by playing it.
 
 Without any Supabase project, using a local stand-in database and a local game:
 
