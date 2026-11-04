@@ -147,7 +147,6 @@ Stored: nick, sex, age, device type, viewport size, country, the rounds. Not sto
 
 ## 12. Open
 
-* The clipping rule at exactly 0 or 1 (contract section 5).
 * Whether `VITE_EMBED_ALLOWED_ORIGINS` is set in the speedy-deliveries Vercel project (then the new app's origin goes into it).
 * The final condition ranges (after the dry run).
 

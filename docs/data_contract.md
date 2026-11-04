@@ -1,4 +1,4 @@
-# Driving game: data contract, v04 (4.11.2026)
+# Driving game: data contract, v05 (4.11.2026)
 
 *Master copy (since 4.11.2026). The ML2 project keeps a pointer. Changes to it affect the ML2 notebooks and scorer, so they are agreed with Pavel and noted under Versions.*
 
@@ -97,7 +97,7 @@ The **5 counted test rounds of every complete player**: the same columns without
 * CSV with the header `round_id,p`, one row per round of `game_test.csv`, each round exactly once, no other rows.
 * `p`: the probability of an accident, a number between 0 and 1 with a decimal point.
 * The app also accepts a semicolon separator; a decimal comma is rejected with a message saying so.
-* Exactly 0 or exactly 1 is accepted with a warning; for scoring, p is clipped to [0.001, 0.999] (rule to be confirmed by Pavel and announced in advance).
+* Exactly 0 or exactly 1 is accepted with a warning; for scoring, p is clipped to [0.001, 0.999] (confirmed by Pavel on 4.11.2026; announced to the class with the task).
 * If every p is 0 or 1, the file is rejected: "these look like labels, not probabilities".
 * The last accepted file of a team counts.
 * **No score is ever shown to a team**, on upload or later in the app; the result reaches the class through the admin's report.
@@ -119,5 +119,6 @@ Writes the four files of sections 3 and 4 for an invented class, from the same p
 
 * v01, 3.11.2026: first draft.
 * v02, 3.11.2026 (Pavel): repo `ml-driving-game`; both devices allowed, device a feature; `country` added (from the IP at join, IP not stored; no-variance feature as part of the lesson); no score ever shown to teams; leaderboard through admin reports, running and final.
+* v05, 4.11.2026 (Pavel): section 5, the clipping rule is confirmed: p clipped to [0.001, 0.999] for scoring; exact 0 or 1 accepted with a warning; a file with only 0 and 1 rejected. No change to formats.
 * v04, 4.11.2026 (agreed with Pavel): section 2, shorter rounds by default: `fixed` adds `deliveryDistance: 200`; ranges v02 (time limit 13 to 33 s, spawn rates 1.5 times v01). No change to columns or formats; the synthetic generator's defaults should follow.
 * v03, 4.11.2026 (agreed with Pavel): master copy moved to the `ml-driving-game` repo; section 4.1, `attempt`: gaps also come from rounds interrupted by a page reload. No change to columns or formats.
