@@ -1,0 +1,49 @@
+# ml/: synthetic data and file checks
+
+Tools for the data side of a class (data contract sections 4 and 7). Python 3.9+ with numpy.
+
+## `synth.py`: a synthetic class
+
+Writes the four class files for an invented class, with the same columns, rules and number
+formats as the app's export (a test, `tests/synth-export.test.ts`, loads a synthetic class into
+the app's database code and checks that the app exports exactly the same four files):
+
+```bash
+python3 ml/synth.py --out synth/ --players 30
+python3 ml/synth.py --out synth/ --params study_params.json --target-share 0.35
+```
+
+| file | for |
+|---|---|
+| `game_train.csv`, `game_test.csv` | students |
+| `game_labels.csv`, `game_raw_<CODE>.csv` | teacher |
+| `game_truth_<CODE>.csv` | teacher: the true accident probability of each counted round (the best possible prediction) |
+| `synth_model_<CODE>.json` | teacher: seed, parameters and model, to regenerate the class |
+
+The invented model (all in `MODEL` at the top of the file, not measured): a skill per player, a
+learning curve over attempts at each player's own pace, conditions through a logistic model (more
+traffic and a shorter time limit mean more accidents), a few harder scenes, a touch-screen effect,
+a small sex effect; age and country carry nothing. Rounds take time, so crash-prone players fit
+more training rounds into the training time. Some rounds time out, a few are interrupted by a
+reload, a few players leave early. The intercept is calibrated so the accident share over counted
+rounds is about `--target-share` (default 0.4).
+
+**This repo is public.** The default seed is random and is written only into the teacher's
+`synth_model_<CODE>.json`. Never use a guessable seed for data a class will be scored on, and
+never commit class data (`.gitignore` keeps `synth/` and `game_*.csv` out).
+
+## `check_files.py`: check files and summarise
+
+```bash
+python3 ml/check_files.py <folder>                        # train, test, labels
+python3 ml/check_files.py <folder> --raw game_raw_ABC123.csv
+```
+
+Checks columns, values, sorting, unique round ids, 5 test rows per complete player after their
+training rows, labels matching the test rows, and (with `--raw`) that the files follow from the
+raw file by the rules of contract section 4.4. Then prints what calibrating the game needs:
+accident shares overall, by device, by sex and over attempts, rounds per player, players who never
+or always crashed, a logistic fit of accident on the conditions, and the spread of the fitted
+probabilities. Exit code 1 if a check failed.
+
+After the dry run: run it on the downloaded files with `--raw`.

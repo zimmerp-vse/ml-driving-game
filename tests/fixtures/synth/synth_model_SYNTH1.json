@@ -1,0 +1,61 @@
+{
+  "seed": 4,
+  "players": 12,
+  "code": "SYNTH1",
+  "start": "2026-11-19T09:15:00+00:00",
+  "params": {
+    "training_seconds": 600,
+    "max_training_rounds": null,
+    "test_rounds": 5,
+    "scene_count": 10,
+    "ranges": {
+      "trip_seconds": {
+        "min": 13,
+        "max": 33,
+        "scale": "linear"
+      },
+      "car_rate": {
+        "min": 0.01,
+        "max": 0.09,
+        "scale": "linear"
+      },
+      "obstacle_rate": {
+        "min": 0.002,
+        "max": 0.015,
+        "scale": "linear"
+      },
+      "pedestrian_rate": {
+        "min": 0.001,
+        "max": 0.01,
+        "scale": "linear"
+      }
+    },
+    "fixed": {
+      "malfunctionProbability": 0,
+      "deliveryDistance": 200
+    }
+  },
+  "model": {
+    "intercept": -1.97,
+    "skill_sd": 0.7,
+    "car": 1.4,
+    "obstacle": 0.8,
+    "pedestrian": 0.6,
+    "time_pressure": 0.9,
+    "scene": {
+      "City Night": 0.15,
+      "Rainy Town": 0.2,
+      "Snow Valley": 0.25
+    },
+    "learning_mean": 0.9,
+    "learning_sd": 0.3,
+    "learning_attempts": 8.0,
+    "touch": 0.35,
+    "sex_m": -0.15,
+    "timeout_logit": -3.2,
+    "timeout_time_pressure": 2.0,
+    "interrupt_share": 0.01,
+    "leave_early_share": 0.03,
+    "leave_in_test_share": 0.05
+  }
+}

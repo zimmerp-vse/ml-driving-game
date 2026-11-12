@@ -8,3 +8,8 @@ dist
 *.log
 test-results
 playwright-report
+__pycache__
+# Class data never goes into this public repo. The test fixture is synthetic.
+/synth/
+game_*.csv
+!tests/fixtures/synth/*.csv

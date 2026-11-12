@@ -28,6 +28,10 @@ Milestones 1 to 3 of the spec (section 11):
   participation, the learning curve, accidents by device, the uploads, and the leaderboard (log
   loss, bootstrap intervals over players, two reference rows); one self-contained HTML file.
 
+Data side (`ml/`, see [`ml/README.md`](ml/README.md)): a synthetic class generator and a checker
+for class files. A test checks that the app exports a synthetic class exactly as the generator
+wrote it.
+
 Next: the dry run (13.11.).
 
 ## Stack
@@ -79,6 +83,8 @@ src/lib/submission.ts       reading a predictions file; wording the server's ans
 src/lib/report.ts           report numbers: log loss, reference rows, bootstrap, shares
 src/lib/reportHtml.ts       the report as one HTML file with inline SVG charts
 supabase/migrations/        SQL, applied in the Supabase SQL editor in order
+ml/synth.py                 a synthetic class: the four files, as the app exports them
+ml/check_files.py           checks class files against the contract; numbers for calibration
 tests/                      database tests (PGlite), /api/join tests, local mock
 docs/                       spec, data contract, setup
 ```
