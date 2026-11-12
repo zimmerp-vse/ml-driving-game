@@ -75,6 +75,7 @@ describe('join', () => {
   it('joins, stores the token hashed, normalises the country', async () => {
     const r = await join('  Alice  ', { sex: 'F', age: 21, country: 'cz' });
     expect(r.ok).toBe(true);
+    expect(r.nick).toBe('Alice');
     expect(r.token).toMatch(/^[0-9a-f]{64}$/);
     const row = (await db.query<any>('select * from mlgame.respondents where id = $1', [r.respondent_id])).rows[0];
     expect(row.nick).toBe('Alice');
@@ -216,6 +217,19 @@ describe('schedule and phases', () => {
     expect(list.find((s: any) => s.id === studyId).allow_rejoin).toBe(true);
     // Replacing functions kept their grants: anon still cannot list studies.
     await expect(call(db, 'anon', 'public.mlg_admin_list_studies()')).rejects.toThrow(/permission denied/);
+  });
+
+  it('with Replay on, a taken nick gets a suffix that fits 20 characters; with Replay off it is refused', async () => {
+    const a = await join('ALICE');
+    expect(a).toMatchObject({ ok: true, nick: 'ALICE_2' });
+    expect(await join('alice')).toMatchObject({ ok: true, nick: 'alice_3' });
+    await join('Twenty characters ok');
+    expect(await join('twenty characters ok')).toMatchObject({ ok: true, nick: 'twenty characters_2' });
+    const row = (await db.query<any>('select nick, nick_lower from mlgame.respondents where id = $1', [a.respondent_id])).rows[0];
+    expect(row).toEqual({ nick: 'ALICE_2', nick_lower: 'alice_2' });
+    await call(db, 'authenticated', 'public.mlg_admin_set_allow_rejoin($1, false)', [studyId], ADMIN);
+    expect(await join('Alice')).toEqual({ ok: false, error: 'nick_taken' });
+    await db.query(`delete from mlgame.respondents where nick_lower in ('alice_2', 'alice_3', 'twenty characters ok', 'twenty characters_2')`);
   });
 
   it('new studies get the defaults of contract v06 (shorter rounds, v01 spawn rates)', async () => {

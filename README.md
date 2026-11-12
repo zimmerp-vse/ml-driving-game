@@ -17,7 +17,8 @@ belong to a study. First use: ML2, block 6, 19.11.2026.
 Milestones 1 to 3 of the spec (section 11):
 
 * join with the country lookup, play with a server-drawn schedule, phases decided by the server;
-* admin: studies (create, open, close, delete, Replay for test studies), and per study
+* admin: studies (create, open, close, delete, Replay for test studies: a finished player
+  may play again, and a taken nick gets _2, _3), and per study
   (`/admin/study/:id`) live progress every 5 s, the four class files with the counts of the
   contract's rules, and the switches "Release data to students" and "Submissions open";
 * projector page `/screen/:code` with QR code and counts;

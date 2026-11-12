@@ -94,7 +94,8 @@ export interface JoinInput {
   sex: 'F' | 'M' | null;
   age: number | null;
 }
-export type JoinResult = { ok: true; respondent_id: string; token: string } | Failure;
+/** `nick`: the name stored, with a suffix such as _2 when Replay is on and the nick was taken. */
+export type JoinResult = { ok: true; respondent_id: string; token: string; nick?: string } | Failure;
 
 export async function join(input: JoinInput): Promise<JoinResult> {
   const device = window.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'mouse';

@@ -104,9 +104,9 @@ export async function handleJoin(request: Request, env: JoinEnv, fetchImpl: type
     console.error('mlg_join_study failed with status', upstream.status);
     return json(502, { ok: false, error: 'server' });
   }
-  const result = (await upstream.json()) as { ok: boolean; error?: string; respondent_id?: string; token?: string };
+  const result = (await upstream.json()) as { ok: boolean; error?: string; respondent_id?: string; token?: string; nick?: string };
   if (!result.ok) return json(200, { ok: false, error: result.error ?? 'server' });
-  return json(200, { ok: true, respondent_id: result.respondent_id, token: result.token });
+  return json(200, { ok: true, respondent_id: result.respondent_id, token: result.token, nick: result.nick });
 }
 
 export async function POST(request: Request): Promise<Response> {

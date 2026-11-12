@@ -214,6 +214,11 @@ export function GameFrame({
           <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-b from-transparent via-transparent to-slate-950/80 landscape:block" />
           <div className="relative flex justify-center px-4 py-6 landscape:min-h-full landscape:items-end landscape:pb-[6vh]">
             <div className="w-full max-w-md space-y-6 rounded-2xl text-center landscape:bg-slate-950/80 landscape:p-6 landscape:shadow-2xl landscape:backdrop-blur-sm">
+              {session && (
+                <p className="text-lg">
+                  You play as <span className="font-semibold text-orange-300">{session.nick}</span>
+                </p>
+              )}
               <ControlsHint touch={!!touch} />
               <button
                 onClick={start}
