@@ -1,16 +1,16 @@
-// Two simulated players with a short training time (4 s) and 2 test rounds: both phases, a
-// timeout in the test phase, a resume after a reload, then the admin's progress and files.
+// Two simulated players play freely (data contract v07): the bar and Menu between rounds, the
+// check-in after 10 rounds, "I'm done", a timeout, a resume after a reload; then the admin's
+// progress, a release with its preview, the team page and the projector.
 import { test, expect, type Page, type Frame, type APIRequestContext } from '@playwright/test';
 
 const MOCK = 'http://localhost:54329';
-const TRAINING_MS = 4_000;
 // Local stand-in admin of tests/mock-supabase.ts (exists only in the mock).
 const ADMIN_EMAIL = 'admin@local.test';
 const ADMIN_PASSWORD = 'local-test-only';
 
 type Round = {
-  study_code: string; nick: string; device: string; country: string; attempt: number; phase: string | null; counted: boolean | null;
-  test_index: number | null; outcome: string | null; conditions: Record<string, number>; applied: Record<string, number> | null;
+  study_code: string; nick: string; device: string; country: string; attempt: number; counted: boolean | null;
+  outcome: string | null; conditions: Record<string, number>; applied: Record<string, number> | null;
   ended_at: string | null;
 };
 
@@ -34,7 +34,7 @@ async function createStudy(request: APIRequestContext): Promise<{ code: string; 
   const headers = { apikey: 'sb_publishable_local', authorization: `Bearer ${auth.access_token}` };
   const title = `E2E ${Date.now()}`;
   const st = await (await request.post(`${MOCK}/rest/v1/rpc/mlg_admin_create_study`, {
-    headers, data: { p_title: title, p_consent_text: 'Test only.', p_params: { training_seconds: TRAINING_MS / 1000, test_rounds: 2 } },
+    headers, data: { p_title: title, p_consent_text: 'Test only.', p_params: { test_rounds: 2, min_rounds: 3 } },
   })).json();
   await request.post(`${MOCK}/rest/v1/rpc/mlg_admin_set_status`, { headers, data: { p_id: st.id, p_status: 'open' } });
   return { code: st.code, title };
@@ -66,10 +66,10 @@ async function startDriving(page: Page): Promise<Frame> {
 
 const play = (frame: Frame, outcome: string) => frame.evaluate((o) => (window as any).playRound(o), outcome);
 
-test('two players: training, test, a timeout, a resume, then progress and files', async ({ browser, request }) => {
+test('two players play freely, say they are done, then progress, a release and the team page', async ({ browser, request }) => {
   const study = await createStudy(request);
   CODE = study.code;
-  // ---- Player 1: laptop. Two training rounds, then test rounds with a timeout in between. ----
+  // ---- Player 1: laptop. Ten rounds with a timeout, the check-in, one more round, Menu, done. ----
   const laptop = await browser.newContext();
   const p1 = await laptop.newPage();
   await join(p1, 'alice', 'Female', '21');
@@ -78,36 +78,39 @@ test('two players: training, test, a timeout, a resume, then progress and files'
 
   // What the app sent the game.
   const init = await g1.evaluate(() => (window as any).received.find((m: any) => m.type === 'INIT').payload);
-  expect(init.difficulty.schedule).toHaveLength(80);
-  expect(init.difficulty).toMatchObject({ totalRounds: 80, deliveryDistance: 200, malfunctionProbability: 0 });
-  expect(init.ui).toMatchObject({ autoStart: true, showRoundTotal: false, showQuitButton: false });
+  expect(init.difficulty.schedule).toHaveLength(100);
+  expect(init.difficulty).toMatchObject({ totalRounds: 100, deliveryDistance: 200, malfunctionProbability: 0, safeFinish: true });
+  expect(init.ui).toMatchObject({ autoStart: true, showRoundTotal: false, showQuitButton: false, timeRing: true });
   expect(init.player.nickname).toBe('alice');
 
-  await play(g1, 'delivered');
-  await waitForAttempt(request, 'alice', 1, true);
-  await play(g1, 'crash_car');
-  await waitForAttempt(request, 'alice', 2, true);
-  await p1.waitForTimeout(TRAINING_MS + 500); // the training time runs out
-  await play(g1, 'delivered'); // test 1
-  await waitForAttempt(request, 'alice', 3, true);
-  await play(g1, 'timeout'); // test, not counted: replaced by the next round
-  await waitForAttempt(request, 'alice', 4, true);
-  await expect(p1.getByText('Done, thank you!')).not.toBeVisible();
-  await play(g1, 'crash_obstacle'); // test 2: done
+  const outcomes = ['delivered', 'crash_car', 'delivered', 'timeout', 'crash_obstacle', 'delivered', 'delivered', 'crash_car', 'delivered', 'delivered'];
+  for (let i = 0; i < outcomes.length; i++) {
+    await play(g1, outcomes[i]);
+    await waitForAttempt(request, 'alice', i + 1, true);
+    if (i === 0) await expect(p1.getByText('1 round ·')).toBeVisible(); // the bar between rounds
+  }
+  // After 10 rounds the menu opens by itself.
+  await expect(p1.getByText('Thank you for playing 10 rounds!')).toBeVisible();
+  await p1.getByRole('button', { name: 'Keep driving' }).click();
+  await expect(p1.getByText('Thank you for playing')).not.toBeVisible();
+  await play(g1, 'crash_pedestrian');
+  await waitForAttempt(request, 'alice', 11, true);
+  await p1.getByRole('button', { name: 'Menu' }).click();
+  await expect(p1.getByText('Your game so far')).toBeVisible();
+  await p1.getByRole('button', { name: "I'm done" }).click();
   await expect(p1.getByText('Done, thank you! You can close this page now.')).toBeVisible();
+  await expect(p1.getByText('Rounds', { exact: true }).locator('..')).toContainText('11');
 
   const a = await rounds(request, 'alice');
-  expect(a.map((r) => [r.attempt, r.phase, r.counted, r.test_index, r.outcome])).toEqual([
-    [1, 'train', true, null, 'delivered'],
-    [2, 'train', true, null, 'crash_car'],
-    [3, 'test', true, 1, 'delivered'],
-    [4, 'test', false, null, 'timeout'],
-    [5, 'test', true, 2, 'crash_obstacle'],
+  expect(a.map((r) => [r.attempt, r.counted, r.outcome])).toEqual([
+    [1, true, 'delivered'], [2, true, 'crash_car'], [3, true, 'delivered'], [4, false, 'timeout'],
+    [5, true, 'crash_obstacle'], [6, true, 'delivered'], [7, true, 'delivered'], [8, true, 'crash_car'],
+    [9, true, 'delivered'], [10, true, 'delivered'], [11, true, 'crash_pedestrian'],
   ]);
-  expect(a[0]).toMatchObject({ device: 'mouse', country: 'CZ' });
+  expect(a[0]).toMatchObject({ device: 'keyboard', country: 'CZ' });
   for (const r of a) expect(r.applied).toEqual(r.conditions); // the game applied what the server drew
 
-  // ---- Player 2: phone. One training round, a reload in the middle of a round, then the test. ----
+  // ---- Player 2: phone. One round, a reload in the middle of a round, two more, done. ----
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const p2 = await phone.newPage();
   await join(p2, 'bob', 'Male', null);
@@ -123,27 +126,35 @@ test('two players: training, test, a timeout, a resume, then progress and files'
   await expect(p2.getByLabel('Your nick')).not.toBeVisible();
   g2 = await startDriving(p2);
   const resumed = await g2.evaluate(() => (window as any).received.find((m: any) => m.type === 'INIT').payload);
-  await p2.waitForTimeout(TRAINING_MS + 500);
-  await play(g2, 'delivered'); // attempt 3, test 1
+  await play(g2, 'delivered');
   await waitForAttempt(request, 'bob', 3, true);
-  await play(g2, 'crash_car'); // attempt 4, test 2: done
+  // With 2 counted rounds the menu asks for at least 3.
+  await p2.getByRole('button', { name: 'Menu' }).click();
+  await expect(p2.getByText('please play at least 3 rounds')).toBeVisible();
+  await p2.getByRole('button', { name: 'Keep driving' }).click();
+  await play(g2, 'crash_car');
+  await waitForAttempt(request, 'bob', 4, true);
+  await p2.getByRole('button', { name: 'Menu' }).click();
+  await expect(p2.getByText('please play at least')).not.toBeVisible();
+  await p2.getByRole('button', { name: "I'm done" }).click();
   await expect(p2.getByText('Done, thank you!')).toBeVisible();
 
   const b = await rounds(request, 'bob');
-  expect(b.map((r) => [r.attempt, r.phase, r.test_index, r.outcome])).toEqual([
-    [1, 'train', null, 'crash_pedestrian'],
-    [2, null, null, null], // interrupted: started, never ended
-    [3, 'test', 1, 'delivered'],
-    [4, 'test', 2, 'crash_car'],
+  expect(b.map((r) => [r.attempt, r.counted, r.outcome])).toEqual([
+    [1, true, 'crash_pedestrian'],
+    [2, null, null], // interrupted: started, never ended
+    [3, true, 'delivered'],
+    [4, true, 'crash_car'],
   ]);
   expect(b[0].device).toBe('touch');
   expect(resumed.difficulty.schedule[0]).toEqual(b[2].conditions); // the resumed schedule starts at attempt 3
 
-  // A reload after the end shows "Done" again.
+  // A reload after the end shows "Done" again, with the numbers.
   await p2.reload();
   await expect(p2.getByText('Done, thank you!')).toBeVisible();
+  await expect(p2.getByText('Delivered', { exact: true }).locator('..')).toContainText('1');
 
-  // ---- The admin: live progress and the class files. ----
+  // ---- The admin: live progress, a release with its preview. ----
   const admin = await (await browser.newContext()).newPage();
   await admin.goto('/admin');
   await admin.getByPlaceholder('Email').fill(ADMIN_EMAIL);
@@ -153,18 +164,25 @@ test('two players: training, test, a timeout, a resume, then progress and files'
 
   const progress = admin.locator('section').filter({ has: admin.getByRole('heading', { name: 'Live progress', exact: true }) });
   await expect(progress.getByText('Done', { exact: true }).locator('..')).toContainText('2');
-  await expect(progress.getByRole('row', { name: /alice/ })).toContainText('2 / 2');
+  await expect(progress.getByText('3+ counted rounds', { exact: true }).locator('..')).toContainText('2');
+  await expect(progress.getByRole('row', { name: /alice/ })).toContainText('done');
   await expect(progress.getByRole('row', { name: /bob/ })).toContainText('touch');
 
-  await admin.getByRole('button', { name: 'Prepare files' }).click();
-  const files = admin.locator('section').filter({ has: admin.getByRole('heading', { name: 'Files', exact: true }) });
-  await expect(files).toContainText('9 rounds recorded, 2 players joined.');
-  await expect(files).toContainText('3 rows in game_train.csv, from 2 players.');
-  await expect(files).toContainText('4 rows in game_test.csv, from 2 complete players.');
-  await expect(files).toContainText('1 timeouts and breakdowns');
-  await expect(files).toContainText('1 rounds interrupted by a reload');
+  const releases = admin.locator('section').filter({ has: admin.getByRole('heading', { name: 'Data releases', exact: true }) });
+  await releases.getByRole('button', { name: 'Prepare a release' }).click();
+  // alice: 10 counted rounds, bob: 3; the last 2 of each are the test.
+  await expect(releases).toContainText('2 players in game_test.csv (4 rows), 0 only in game_train.csv');
+  await expect(releases).toContainText('9 rows in game_train.csv.');
+  await expect(releases).toContainText('1 timeouts, 1 unfinished');
+  await releases.getByRole('button', { name: 'Release to students' }).click();
+  await expect(releases.getByRole('row', { name: /latest/ })).toContainText('9 train, 4 test');
+
+  // The team page has release 1.
+  await admin.goto(`/s/${CODE}/submit`);
+  await expect(admin.getByText('Data release 1')).toBeVisible();
 
   // The projector page counts the same.
   await admin.goto(`/screen/${CODE}`);
   await expect(admin.getByText('Done', { exact: true }).locator('..')).toContainText('2');
+  await expect(admin.getByText('3+ rounds', { exact: true }).locator('..')).toContainText('2');
 });

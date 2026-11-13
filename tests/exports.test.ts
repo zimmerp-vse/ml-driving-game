@@ -1,4 +1,5 @@
-// The file rules of data contract section 4.4 and the live progress, on a small invented class.
+// The split at release (data contract v07, section 4.4), releases, exports and live progress,
+// on a small invented class.
 import { describe, it, expect, beforeAll } from 'vitest';
 import type { PGlite } from '@electric-sql/pglite';
 import { freshDb, call } from './db';
@@ -22,126 +23,159 @@ const play = async (nick: string, attempt: number, outcome: string | null) => {
     tokens[nick], attempt, outcome, 'Snow Valley', JSON.stringify({ sceneIndex: 7 }),
   ]);
 };
-// Training time runs out for this player: rounds started from now on are test rounds.
-const endTraining = (nick: string) =>
-  db.query(`update mlgame.respondents set first_round_started_at = now() - interval '2 minutes' where nick = $1`, [nick]);
+const finish = (nick: string) => call(db, 'anon', 'public.mlg_finish($1)', [tokens[nick]]);
+const admin = (sql: string, params: unknown[] = []) => call(db, 'authenticated', sql, params, ADMIN);
+const rowsOf = (x: any) => x.files.map((r: any) => [r.file, r.player, r.attempt, r.accident]);
 
 beforeAll(async () => {
   db = await freshDb();
   await db.query(`insert into auth.users (id, email) values ($1, 'admin@example.com')`, [ADMIN]);
   await db.query('insert into mlgame.admins (user_id) values ($1)', [ADMIN]);
   const st = await call(db, 'authenticated',
-    `public.mlg_admin_create_study('Export test', 'c', '{"training_seconds": 60, "test_rounds": 2}'::jsonb)`, [], ADMIN);
+    `public.mlg_admin_create_study('Export test', 'c', '{"test_rounds": 2, "min_rounds": 4}'::jsonb)`, [], ADMIN);
   studyId = st.id;
   code = st.code;
   await call(db, 'authenticated', `public.mlg_admin_set_status($1, 'open')`, [studyId], ADMIN);
 
-  // anna: complete. Training 1 delivered, 2 timeout, 3 crash; test 4 delivered, 5 timeout, 6 crash.
+  // anna: 7 rounds, counted 1, 3, 4, 6, 7 (5 counted, at least 4): test = 6, 7; train = 1, 3, 4. Done.
   await join('anna', 'F', 21);
-  await play('anna', 1, 'delivered');
-  await play('anna', 2, 'timeout');
-  await play('anna', 3, 'crash_car');
-  await endTraining('anna');
-  await play('anna', 4, 'delivered');
-  await play('anna', 5, 'timeout');
-  await play('anna', 6, 'crash_pedestrian');
+  for (const [a, o] of [[1, 'delivered'], [2, 'timeout'], [3, 'crash_car'], [4, 'delivered'], [5, 'timeout'],
+    [6, 'crash_pedestrian'], [7, 'delivered']] as const) await play('anna', a, o);
+  await finish('anna');
 
-  // Bob: incomplete. Training 1 crash, 2 interrupted by a reload; test 3 delivered (1 of 2).
+  // Bob: 1 crash, 2 interrupted by a reload, 3 delivered: 2 counted (fewer than 4), all in train.
   await join('Bob', 'M');
   await play('Bob', 1, 'crash_obstacle');
   await play('Bob', 2, null);
-  await endTraining('Bob');
   await play('Bob', 3, 'delivered');
 
-  // cleo: no counted training round. Training 1 timeout; test 2 crash, 3 delivered (complete).
+  // cleo: only a timeout. dan: joined, never played.
   await join('cleo');
   await play('cleo', 1, 'timeout');
-  await endTraining('cleo');
-  await play('cleo', 2, 'crash_car');
-  await play('cleo', 3, 'delivered');
-
-  // dan: joined, never played.
   await join('dan');
 }, 30000);
 
-describe('exports (data contract 4.4)', () => {
-  it('only the admin can export', async () => {
-    await expect(call(db, 'anon', 'public.mlg_admin_export($1)', [studyId])).rejects.toThrow(/permission denied/);
+describe('the split (data contract 4.4)', () => {
+  it('only the admin can preview, release and export', async () => {
+    for (const sql of ['public.mlg_admin_export($1)', 'public.mlg_admin_release_preview($1)', 'public.mlg_admin_list_releases($1)']) {
+      await expect(call(db, 'anon', sql, [studyId])).rejects.toThrow(/permission denied/);
+    }
+    await expect(call(db, 'anon', 'public.mlg_admin_create_release($1, null, 2, 4)', [studyId])).rejects.toThrow(/permission denied/);
   });
 
-  it('builds the train and test rows by the rules, sorted by player then attempt', async () => {
-    const x = await call(db, 'authenticated', 'public.mlg_admin_export($1)', [studyId], ADMIN);
-    const rows = x.files.map((r: any) => [r.file, r.player, r.attempt, r.accident]);
-    expect(rows).toEqual([
+  it('a preview: the last test_rounds counted rounds of players with at least min_rounds; nothing stored', async () => {
+    const x = await admin('public.mlg_admin_release_preview($1)', [studyId]);
+    expect(x.settings).toMatchObject({ test_rounds: 2, min_rounds: 4 });
+    expect(rowsOf(x)).toEqual([
       ['train', 'anna', 1, 0],
       ['train', 'anna', 3, 1],
-      ['test', 'anna', 4, 0],
+      ['train', 'anna', 4, 0],
       ['test', 'anna', 6, 1],
+      ['test', 'anna', 7, 0],
       ['train', 'Bob', 1, 1],
-      ['train', 'Bob', 3, 0], // incomplete: the test round goes to train
+      ['train', 'Bob', 3, 0],
     ]);
-    // Student file rows carry only the contract's columns (no time, money, phase, crash type...).
+    // Student file rows carry only the contract's columns (no time, money, crash type...).
     expect(Object.keys(x.files[0]).sort()).toEqual([
       'accident', 'age', 'attempt', 'car_rate', 'country', 'device', 'file', 'obstacle_rate',
       'pedestrian_rate', 'player', 'round_id', 'scene', 'sex', 'trip_seconds',
     ]);
-    const a1 = x.files[0];
-    expect(a1).toMatchObject({ sex: 'F', age: 21, device: 'touch', country: 'CZ', scene: 'Snow Valley' });
-    expect(a1.round_id).toMatch(/^[A-Z2-9]{8}$/);
-    expect(a1.trip_seconds).toBeGreaterThanOrEqual(13);
-    expect(a1.trip_seconds).toBeLessThanOrEqual(33);
-  });
-
-  it('counts what the rules dropped', async () => {
-    const x = await call(db, 'authenticated', 'public.mlg_admin_export($1)', [studyId], ADMIN);
+    expect(x.files[0]).toMatchObject({ sex: 'F', age: 21, device: 'touch', country: 'CZ', scene: 'Snow Valley' });
+    expect(x.files[0].round_id).toMatch(/^[A-Z2-9]{8}$/);
     expect(x.counts).toEqual({
-      rounds_total: 12, // anna 6, Bob 3, cleo 3
-      train_rows: 4,
+      rounds_total: 11, // anna 7, Bob 3, cleo 1
+      train_rows: 5,
       test_rows: 2,
-      dropped_timeout_or_breakdown: 3, // anna 2, anna 5, cleo 1
-      dropped_interrupted: 1, // Bob 2
-      dropped_no_training_round: 2, // cleo 2, 3
-      dropped_after_done: 0,
+      dropped_timeout_or_breakdown: 3, // anna 2, 5; cleo 1
+      dropped_unfinished: 1, // Bob 2
+      dropped_after_cutoff: 0,
       players_total: 4,
-      players_complete: 1,
+      players_in_test: 1,
       players_in_train: 2,
+      players_only_train: 1, // Bob
       players_left_out: 2, // cleo, dan
     });
+    // Other settings: everyone with at least 2 counted rounds gets 1 test round.
+    const y = await admin('public.mlg_admin_release_preview($1, null, 1, 2)', [studyId]);
+    expect(y.files.filter((r: any) => r.file === 'test').map((r: any) => [r.player, r.attempt])).toEqual([['anna', 7], ['Bob', 3]]);
+    await expect(admin('public.mlg_admin_release_preview($1, null, 3, 3)', [studyId])).rejects.toThrow(/invalid settings/);
+    expect(await admin('public.mlg_admin_list_releases($1)', [studyId])).toEqual([]);
   });
 
-  it('the raw export has every round (12) with the contract section 3 columns', async () => {
-    const x = await call(db, 'authenticated', 'public.mlg_admin_export($1)', [studyId], ADMIN);
-    expect(x.raw).toHaveLength(12);
-    expect(Object.keys(x.raw[0]).sort()).toEqual([
-      'age', 'applied', 'attempt', 'car_rate', 'counted', 'country', 'device', 'joined_at',
-      'money_balance', 'money_earned', 'money_lost', 'obstacle_rate', 'outcome', 'pedestrian_rate',
-      'phase', 'player', 'round_ended_at', 'round_started_at', 'scene', 'sex', 'study_code',
-      'test_index', 'time_ms', 'trip_seconds', 'viewport_height', 'viewport_width',
+  it('before the first release the export is the preview with the study defaults; data cannot be released yet', async () => {
+    const x = await admin('public.mlg_admin_export($1)', [studyId]);
+    expect(x.release).toBeNull();
+    expect(rowsOf(x)).toEqual(rowsOf(await admin('public.mlg_admin_release_preview($1)', [studyId])));
+    await expect(admin('public.mlg_admin_set_flags($1, true, null)', [studyId])).rejects.toThrow(/make a release first/);
+  });
+
+  it('a release is numbered, stored and released; later rounds do not change it', async () => {
+    const r1 = await admin('public.mlg_admin_create_release($1, null, 2, 4)', [studyId]);
+    expect(r1).toMatchObject({ number: 1, test_rounds: 2, min_rounds: 4, counts: { test_rows: 2, train_rows: 5 } });
+    expect((await admin('public.mlg_admin_get_study($1)', [studyId])).data_released).toBe(true);
+
+    // Bob plays on after the release: now 4 counted rounds.
+    await play('Bob', 4, 'crash_car');
+    await play('Bob', 5, 'delivered');
+    const latest = await admin('public.mlg_admin_export($1)', [studyId]);
+    expect(latest.release.number).toBe(1);
+    expect(rowsOf(latest).filter((r: any) => r[1] === 'Bob')).toEqual([['train', 'Bob', 1, 1], ['train', 'Bob', 3, 0]]);
+
+    // A preview with the old cutoff ignores the new rounds; a new release takes them.
+    const old = await admin('public.mlg_admin_release_preview($1, $2, 2, 4)', [studyId, r1.cutoff]);
+    expect(old.counts).toMatchObject({ dropped_after_cutoff: 2, test_rows: 2 });
+    const r2 = await admin('public.mlg_admin_create_release($1, null, 2, 4)', [studyId]);
+    expect(r2.number).toBe(2);
+    const x2 = await admin('public.mlg_admin_export($1)', [studyId]);
+    expect(rowsOf(x2).filter((r: any) => r[1] === 'Bob')).toEqual([
+      ['train', 'Bob', 1, 1], ['train', 'Bob', 3, 0], ['test', 'Bob', 4, 1], ['test', 'Bob', 5, 0],
     ]);
-    const interrupted = x.raw.find((r: any) => r.player === 'Bob' && r.attempt === 2);
-    expect(interrupted).toMatchObject({ outcome: null, round_ended_at: null, phase: null });
+    // Release 1 is still there, unchanged.
+    expect(rowsOf(await admin('public.mlg_admin_export($1, 1)', [studyId]))).toEqual(rowsOf(latest));
+    expect((await admin('public.mlg_admin_list_releases($1)', [studyId])).map((r: any) => r.number)).toEqual([2, 1]);
+    await expect(admin('public.mlg_admin_export($1, 9)', [studyId])).rejects.toThrow(/release not found/);
+  });
+
+  it('a release needs at least one player in the test file', async () => {
+    await expect(admin('public.mlg_admin_create_release($1, null, 5, 50)', [studyId])).rejects.toThrow(/no player has enough rounds/);
+  });
+
+  it('the raw export has every round with the contract section 3 columns', async () => {
+    const x = await admin('public.mlg_admin_export($1)', [studyId]);
+    expect(x.raw).toHaveLength(13);
+    expect(Object.keys(x.raw[0]).sort()).toEqual([
+      'age', 'applied', 'attempt', 'car_rate', 'counted', 'country', 'device', 'finished_at', 'joined_at',
+      'money_balance', 'money_earned', 'money_lost', 'obstacle_rate', 'outcome', 'pedestrian_rate',
+      'player', 'round_ended_at', 'round_started_at', 'scene', 'sex', 'study_code',
+      'time_ms', 'trip_seconds', 'viewport_height', 'viewport_width',
+    ]);
+    expect(x.raw.find((r: any) => r.player === 'Bob' && r.attempt === 2)).toMatchObject({ outcome: null, round_ended_at: null, counted: null });
+    expect(x.raw.find((r: any) => r.player === 'anna').finished_at).not.toBeNull();
+    expect(x.raw.find((r: any) => r.player === 'Bob').finished_at).toBeNull();
   });
 });
 
 describe('live progress', () => {
-  it('lists players with phase, rounds and accidents, and totals', async () => {
-    const p = await call(db, 'authenticated', 'public.mlg_admin_progress($1)', [studyId], ADMIN);
+  it('lists players with rounds, counted rounds, accidents and done; totals', async () => {
+    const p = await admin('public.mlg_admin_progress($1)', [studyId]);
     const byNick = Object.fromEntries(p.players.map((x: any) => [x.nick, x]));
     expect(p.players.map((x: any) => x.nick)).toEqual(['anna', 'Bob', 'cleo', 'dan']);
-    expect(byNick.anna).toMatchObject({ phase: 'done', rounds_played: 6, accidents: 2, counted_test_rounds: 2, playing: false });
-    expect(byNick.Bob).toMatchObject({ phase: 'test', rounds_played: 2, accidents: 1, counted_test_rounds: 1, playing: true });
-    expect(byNick.cleo.phase).toBe('done');
-    expect(byNick.dan).toMatchObject({ phase: 'not started', rounds_played: 0 });
-    expect(p.totals).toEqual({ joined: 4, playing: 2, in_test: 1, done: 2 });
+    expect(p.min_rounds).toBe(4);
+    expect(byNick.anna).toMatchObject({ rounds_played: 7, counted: 5, accidents: 2, done: true, playing: false });
+    expect(byNick.Bob).toMatchObject({ rounds_played: 4, counted: 4, accidents: 2, done: false, playing: true });
+    expect(byNick.dan).toMatchObject({ rounds_played: 0, counted: 0, done: false });
+    expect(p.totals).toEqual({ joined: 4, playing: 3, enough_rounds: 2, done: 1 });
   });
 });
 
 describe('release and submission switches', () => {
   it('set and leave unchanged', async () => {
-    let st = await call(db, 'authenticated', 'public.mlg_admin_set_flags($1, true, null)', [studyId], ADMIN);
-    expect([st.data_released, st.submissions_open]).toEqual([true, false]);
-    st = await call(db, 'authenticated', 'public.mlg_admin_set_flags($1, null, true)', [studyId], ADMIN);
+    let st = await admin('public.mlg_admin_set_flags($1, false, null)', [studyId]);
+    expect([st.data_released, st.submissions_open]).toEqual([false, false]);
+    st = await admin('public.mlg_admin_set_flags($1, true, true)', [studyId]);
     expect([st.data_released, st.submissions_open]).toEqual([true, true]);
+    st = await admin('public.mlg_admin_set_flags($1, null, false)', [studyId]);
+    expect([st.data_released, st.submissions_open]).toEqual([true, false]);
     await expect(call(db, 'anon', 'public.mlg_admin_set_flags($1, true, true)', [studyId])).rejects.toThrow(/permission denied/);
   });
 });

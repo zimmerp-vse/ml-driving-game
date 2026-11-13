@@ -95,8 +95,8 @@ export function describe(m: ServerMessage): string {
     case 'no_test_rounds': return 'There are no test rounds yet. Please ask the teacher.';
     case 'p_out_of_range': return `${many(m.n, 'value of p is not a number', 'values of p are not numbers')} from 0 to 1${ex(m)}.`;
     case 'duplicates': return `${many(m.n, 'round_id appears', 'round_id values appear')} more than once${ex(m)}.`;
-    case 'unknown_ids': return `${many(m.n, 'round_id is', 'round_id values are')} not in game_test.csv${ex(m)}.`;
-    case 'missing_ids': return `${many(m.n, 'round of game_test.csv is', 'rounds of game_test.csv are')} missing from your file${ex(m)}.`;
+    case 'unknown_ids': return `${many(m.n, 'round_id is', 'round_id values are')} not in game_test.csv${ex(m)}. Did you use the latest game_test.csv?`;
+    case 'missing_ids': return `${many(m.n, 'round of game_test.csv is', 'rounds of game_test.csv are')} missing from your file${ex(m)}. Did you use the latest game_test.csv?`;
     case 'looks_like_labels': return 'Every p is exactly 0 or 1. These look like labels, not probabilities. Please upload probabilities.';
     case 'zero_or_one': return `${many(m.n, 'value of p is', 'values of p are')} exactly 0 or 1. This is accepted, but for scoring p is kept between 0.001 and 0.999.`;
     case 'pin_set': return 'Your team PIN is now set. Use the same team name and PIN for later uploads.';

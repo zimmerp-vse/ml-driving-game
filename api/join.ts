@@ -16,7 +16,7 @@ export interface JoinRequestBody {
   nick: string;
   sex: 'F' | 'M' | null;
   age: number | null;
-  device: 'touch' | 'mouse';
+  device: 'touch' | 'keyboard';
   viewport_width: number;
   viewport_height: number;
 }
@@ -40,7 +40,7 @@ export function parseJoinBody(raw: unknown): JoinRequestBody | null {
   if (typeof b.nick !== 'string' || b.nick.length > 100) return null;
   if (b.sex !== null && b.sex !== 'F' && b.sex !== 'M') return null;
   if (b.age !== null && intOrNull(b.age, 15, 99) === null) return null;
-  if (b.device !== 'touch' && b.device !== 'mouse') return null;
+  if (b.device !== 'touch' && b.device !== 'keyboard') return null;
   return {
     code: b.code,
     nick: b.nick,

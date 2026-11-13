@@ -22,13 +22,13 @@ const db = await freshDb();
 await db.query(`insert into auth.users (id, email) values ($1, $2)`, [MOCK_ADMIN_ID, MOCK_ADMIN_EMAIL]);
 await db.query(`insert into mlgame.admins (user_id) values ($1)`, [MOCK_ADMIN_ID]);
 
-// MOCK_PARAMS overrides study parameters, e.g. '{"training_seconds": 60}'.
+// MOCK_PARAMS overrides study parameters, e.g. '{"min_rounds": 4}'.
 await db.query(
   `insert into mlgame.studies (code, title, consent_text, status, params)
    values ('TEST01', 'Driving study (local test)',
            'We store your nick, sex, age, device and country. Local test only.',
            'open', mlgame.default_params() || $1::jsonb)`,
-  [process.env.MOCK_PARAMS ?? '{"training_seconds": 60}'],
+  [process.env.MOCK_PARAMS ?? '{}'],
 );
 // The local test study lets a finished player join again (see migration 20261105100000).
 await db.query(`update mlgame.studies set allow_rejoin = true where code = 'TEST01'`);
@@ -88,7 +88,7 @@ createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/debug/rounds') {
     // Local inspection only: what the server stored per round.
     const r = await db.query(
-      `select st.code as study_code, p.nick, p.device, p.country, r.attempt, r.phase, r.counted, r.test_index,
+      `select st.code as study_code, p.nick, p.device, p.country, r.attempt, r.counted,
               r.outcome, r.conditions, r.applied, r.scene, r.started_at, r.ended_at
          from mlgame.rounds r join mlgame.respondents p on p.id = r.respondent_id
          join mlgame.studies st on st.id = r.study_id

@@ -29,7 +29,8 @@ describe('formatting', () => {
 
 describe('buildFiles', () => {
   const x: ExportResult = {
-    study: { code: 'ABC234', title: 't', test_rounds: 5 },
+    study: { code: 'ABC234', title: 't' },
+    release: null,
     files: [
       { file: 'train', round_id: 'R1', player: 'anna', sex: 'F', age: 21, device: 'touch', country: 'CZ', attempt: 1,
         trip_seconds: 26.6, car_rate: 0.05, obstacle_rate: 0.01, pedestrian_rate: 0.002, scene: 'Snow Valley', accident: 0 },

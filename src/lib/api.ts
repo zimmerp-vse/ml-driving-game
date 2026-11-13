@@ -18,8 +18,20 @@ export interface Position {
   nick: string;
   study_status: StudyStatus;
   next_attempt: number;
-  counted_test_rounds: number;
   done: boolean;
+  /** At least this many rounds give the class the most data (the release's default). */
+  min_rounds: number;
+  stats: PlayerStats;
+}
+
+/** A player's own numbers, shown between rounds and when they are done. */
+export interface PlayerStats {
+  rounds: number;
+  delivered: number;
+  crashes: number;
+  timeouts: number;
+  seconds: number;
+  cash: number | null;
 }
 
 export interface Conditions {
@@ -62,6 +74,8 @@ export const studyInfo = (code: string) => rpc<StudyInfo>('mlg_study_info', { p_
 export const resume = (token: string) => rpc<Position | Failure>('mlg_resume', { p_token: token });
 export const startSchedule = (token: string, count = 80) =>
   rpc<ScheduleResult | Failure>('mlg_start_schedule', { p_token: token, p_count: count });
+/** "I'm done": the player stops playing. */
+export const finishPlaying = (token: string) => rpc<Position | Failure>('mlg_finish', { p_token: token });
 export const roundStart = (token: string, attempt: number) =>
   rpc<{ ok: true } | Failure>('mlg_round_start', { p_token: token, p_attempt: attempt });
 
@@ -98,7 +112,8 @@ export interface JoinInput {
 export type JoinResult = { ok: true; respondent_id: string; token: string; nick?: string } | Failure;
 
 export async function join(input: JoinInput): Promise<JoinResult> {
-  const device = window.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'mouse';
+  // A touch screen (phone, tablet) or a computer played with the arrow keys.
+  const device = window.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'keyboard';
   const res = await fetch('/api/join', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

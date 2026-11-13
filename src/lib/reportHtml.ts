@@ -136,18 +136,20 @@ export function renderReport(d: ReportData, kind: 'running' | 'final', at = new 
 </style></head>
 <body><main>
 <h1>${esc(title)}</h1>
-<div class="meta">Study ${esc(d.study_full.code)}. Made ${esc(at.toLocaleString('en-GB'))}.</div>
+<div class="meta">Study ${esc(d.study_full.code)}. ${d.release
+   ? `Data release ${d.release.number} (rounds up to ${esc(new Date(d.release.cutoff).toLocaleString('en-GB'))}; test: each player's last ${d.release.test_rounds} counted rounds, for players with at least ${d.release.min_rounds}).`
+   : 'No data released yet.'} Made ${esc(at.toLocaleString('en-GB'))}.</div>
 
 <h2>Leaderboard</h2>
 ${dotPlot(lb)}
 ${lbTable}
-<p class="small">Each team's last accepted file, scored on the rounds of game_test.csv. For scoring, p is kept between ${CLIP} and ${1 - CLIP}.
+<p class="small">Each team's last accepted file for this release, scored on the rounds of game_test.csv. For scoring, p is kept between ${CLIP} and ${1 - CLIP}.
 The interval comes from ${BOOTSTRAP_ROUNDS} bootstrap samples that draw whole players (a player's rounds are not independent).
 Reference rows: one p for everybody (the accident share in game_train.csv), and each player's own share in game_train.csv as (accidents + 1) / (rounds + 2).</p>
 
 <h2>Who played</h2>
 <div class="cards">
-${card('Joined', s.joined)}${card('Complete', s.complete)}${card('Rounds', s.roundsRecorded)}${card('Counted', s.roundsCounted)}${card('Timeouts', s.timeoutsDropped)}${card('Interrupted', s.interrupted)}
+${card('Joined', s.joined)}${card('In the test file', s.inTest)}${card('Rounds', s.roundsRecorded)}${card('Counted', s.roundsCounted)}${card('Timeouts', s.timeoutsDropped)}${card('Unfinished', s.unfinished)}
 </div>
 <div class="two">
 <table><thead><tr><th>Device</th><th class="num">Players</th></tr></thead><tbody>${s.byDevicePlayers.map((r) => `<tr><td>${esc(r.label)}</td><td class="num">${r.n}</td></tr>`).join('')}</tbody></table>
@@ -162,8 +164,8 @@ ${learningCurve(s.byAttempt)}
 ${shareBars(s.byDevice)}
 
 <h2>Uploads</h2>
-${uploads.length ? `<table><thead><tr><th>Team</th><th>Time</th><th>Result</th><th>Notes</th></tr></thead><tbody>${uploads
-    .map((u) => `<tr><td>${esc(u.team)}</td><td>${esc(time(u.uploaded_at))}</td><td class="${u.accepted ? 'ok' : 'no'}">${u.accepted ? 'accepted' : 'rejected'}</td>
+${uploads.length ? `<table><thead><tr><th>Team</th><th>Time</th><th>Release</th><th>Result</th><th>Notes</th></tr></thead><tbody>${uploads
+    .map((u) => `<tr><td>${esc(u.team)}</td><td>${esc(time(u.uploaded_at))}</td><td class="num">${u.release ?? ''}</td><td class="${u.accepted ? 'ok' : 'no'}">${u.accepted ? 'accepted' : 'rejected'}</td>
       <td>${u.messages.filter((m) => m.level !== 'info').map((m) => esc(describe(m as never))).join('<br>')}</td></tr>`)
     .join('')}</tbody></table>` : '<p>No uploads yet.</p>'}
 </main></body></html>`;

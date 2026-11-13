@@ -13,10 +13,10 @@ export interface ReportData extends ExportResult {
     status: 'draft' | 'open' | 'closed';
     created_at: string;
     closed_at: string | null;
-    params: { test_rounds: number; training_seconds: number };
+    params: { test_rounds: number; min_rounds: number };
   };
   players: { nick: string; device: string; country: string | null }[];
-  uploads: { team: string; uploaded_at: string; accepted: boolean; messages: { level: string; code: string; n?: number }[] }[];
+  uploads: { team: string; uploaded_at: string; accepted: boolean; release: number | null; messages: { level: string; code: string; n?: number }[] }[];
   last_accepted: { team: string; uploaded_at: string; rows: { round_id: string; p: number }[] }[];
 }
 
@@ -158,11 +158,11 @@ function shares(rows: Record<string, unknown>[], key: (r: Record<string, unknown
 
 export interface Summary {
   joined: number;
-  complete: number;
+  inTest: number;
   roundsRecorded: number;
   roundsCounted: number;
   timeoutsDropped: number;
-  interrupted: number;
+  unfinished: number;
   byDevicePlayers: { label: string; n: number }[];
   byCountryPlayers: { label: string; n: number }[];
   overall: Share | null;
@@ -181,11 +181,11 @@ export function summarize(d: ReportData): Summary {
     .sort((a, b) => (a.label === '26+' ? 1 : b.label === '26+' ? -1 : Number(a.label) - Number(b.label)));
   return {
     joined: d.players.length,
-    complete: d.counts.players_complete,
+    inTest: d.counts.players_in_test,
     roundsRecorded: d.raw.length,
     roundsCounted: d.raw.filter((r) => counted(r.outcome)).length,
     timeoutsDropped: d.counts.dropped_timeout_or_breakdown,
-    interrupted: d.counts.dropped_interrupted,
+    unfinished: d.counts.dropped_unfinished,
     byDevicePlayers: count(d.players.map((p) => p.device)),
     byCountryPlayers: count(d.players.map((p) => p.country ?? 'unknown')),
     overall,

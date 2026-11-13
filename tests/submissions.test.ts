@@ -19,11 +19,11 @@ beforeAll(async () => {
   db = await freshDb();
   await db.query(`insert into auth.users (id, email) values ($1, 'admin@example.com')`, [ADMIN]);
   await db.query('insert into mlgame.admins (user_id) values ($1)', [ADMIN]);
-  const st = await admin(`public.mlg_admin_create_study('Sub test', 'c', '{"training_seconds": 60, "test_rounds": 2}'::jsonb)`);
+  const st = await admin(`public.mlg_admin_create_study('Sub test', 'c', '{"test_rounds": 2, "min_rounds": 3}'::jsonb)`);
   studyId = st.id;
   code = st.code;
   await admin(`public.mlg_admin_set_status($1, 'open')`, [studyId]);
-  // One complete player: 2 training rounds, then 2 counted test rounds.
+  // One player with 4 counted rounds: at release, 2 training rounds and the last 2 as the test.
   const t = (await call(db, 'service_role', `public.mlg_join_study($1, 'anna', 'F', 20, 'touch', 1, 1, 'CZ')`, [code])).token;
   const play = async (a: number, o: string) => {
     await call(db, 'anon', 'public.mlg_round_start($1, $2)', [t, a]);
@@ -31,19 +31,19 @@ beforeAll(async () => {
   };
   await play(1, 'delivered');
   await play(2, 'crash_car');
-  await db.query(`update mlgame.respondents set first_round_started_at = now() - interval '2 minutes'`);
   await play(3, 'crash_obstacle');
   await play(4, 'delivered');
-  const x = await admin('public.mlg_admin_export($1)', [studyId]);
-  testIds = x.files.filter((r: any) => r.file === 'test').map((r: any) => r.round_id);
 }, 30000);
 
 describe('the submission page', () => {
   it('shows no data before release, then train with and test without the target', async () => {
     const before = await call(db, 'anon', 'public.mlg_submit_page($1)', [code]);
     expect(before).toEqual({ status: 'open', title: 'Sub test', data_released: false, submissions_open: false });
-    await admin('public.mlg_admin_set_flags($1, true, null)', [studyId]);
+    await admin('public.mlg_admin_create_release($1, null, 2, 3)', [studyId]);
+    const x = await admin('public.mlg_admin_export($1)', [studyId]);
+    testIds = x.files.filter((r: any) => r.file === 'test').map((r: any) => r.round_id);
     const after = await call(db, 'anon', 'public.mlg_submit_page($1)', [code]);
+    expect(after).toMatchObject({ data_released: true, release: { number: 1 } });
     expect(after.train).toHaveLength(2);
     expect(after.train[0].accident).toBe(0);
     expect(after.test).toHaveLength(2);
@@ -60,12 +60,12 @@ describe('submit', () => {
   it('accepts a good file and sets the PIN with the first upload; never returns a score', async () => {
     await admin('public.mlg_admin_set_flags($1, null, true)', [studyId]);
     const r = await submit('Team A', '1234', good());
-    expect(r).toEqual({ accepted: true, messages: [{ level: 'info', code: 'pin_set' }] });
+    expect(r).toEqual({ accepted: true, release: 1, messages: [{ level: 'info', code: 'pin_set' }] });
   });
 
   it('needs the same PIN later; the team name is case-insensitive', async () => {
     expect(codes(await submit('team a', '9999', good()))).toEqual(['wrong_pin']);
-    expect(await submit('  TEAM   A ', '1234', good())).toEqual({ accepted: true, messages: [] });
+    expect(await submit('  TEAM   A ', '1234', good())).toEqual({ accepted: true, release: 1, messages: [] });
   });
 
   it('rejects files that do not match game_test.csv, with codes the page can explain', async () => {
@@ -122,6 +122,24 @@ describe('report data and stored reports', () => {
     expect(await admin('public.mlg_admin_get_report($1)', [id])).toBe('<html>r</html>');
     await expect(call(db, 'anon', 'public.mlg_admin_get_report($1)', [id])).rejects.toThrow(/permission denied/);
     await expect(call(db, 'anon', 'public.mlg_admin_report_data($1)', [studyId])).rejects.toThrow(/permission denied/);
+  });
+
+  it('a new release: uploads are checked against it, and reports score the uploads of their release', async () => {
+    await admin('public.mlg_admin_create_release($1, null, 1, 2)', [studyId]);
+    const page = await call(db, 'anon', 'public.mlg_submit_page($1)', [code]);
+    expect(page.release.number).toBe(2);
+    expect(page.test.map((r: any) => r.round_id)).toEqual([testIds[1]]);
+    // Release 1's file no longer fits.
+    expect(codes(await submit('Team A', '1234', good()))).toEqual(['unknown_ids']);
+    const latest = await admin('public.mlg_admin_report_data($1)', [studyId]);
+    expect(latest.release.number).toBe(2);
+    expect(latest.last_accepted).toEqual([]);
+    expect(new Set(latest.uploads.map((u: any) => u.release))).toEqual(new Set([1, 2]));
+    const ok = await submit('Team A', '1234', [{ round_id: testIds[1], p: 0.3 }]);
+    expect(ok).toMatchObject({ accepted: true, release: 2 });
+    expect((await admin('public.mlg_admin_report_data($1)', [studyId])).last_accepted.map((x: any) => x.team)).toEqual(['Team A']);
+    // Release 1's report still has its own uploads.
+    expect((await admin('public.mlg_admin_report_data($1, 1)', [studyId])).last_accepted).toHaveLength(3);
   });
 
   it('closing the study closes submissions', async () => {

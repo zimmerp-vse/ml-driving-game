@@ -5,13 +5,22 @@ Tools for the data side of a class (data contract sections 4 and 7). Python 3.9+
 ## `synth.py`: a synthetic class
 
 Writes the four class files for an invented class, with the same columns, rules and number
-formats as the app's export (a test, `tests/synth-export.test.ts`, loads a synthetic class into
-the app's database code and checks that the app exports exactly the same four files):
+formats as a release in the app (a test, `tests/synth-export.test.ts`, loads a synthetic class
+into the app's database code, makes a release with the same settings and checks that the app
+exports exactly the same four files):
 
 ```bash
 python3 ml/synth.py --out synth/ --players 30
 python3 ml/synth.py --out synth/ --params study_params.json --target-share 0.35
+python3 ml/synth.py --out synth/ --class-minutes 12
 ```
+
+Free play (contract v07): each invented player has their own patience (median 6 minutes), some
+stop at the check-in after 10 or 20 rounds, a few leave early or never press "I'm done", and the
+teacher closes the study after `--class-minutes` (default 15). Then the data is released with the
+study's `test_rounds` and `min_rounds` (defaults 5 and 10): each player's last 5 counted rounds
+are the test, for players with at least 10. The release's cutoff and settings are in
+`synth_model_<CODE>.json`.
 
 | file | for |
 |---|---|
@@ -36,12 +45,13 @@ never commit class data (`.gitignore` keeps `synth/` and `game_*.csv` out).
 
 ```bash
 python3 ml/check_files.py <folder>                        # train, test, labels
-python3 ml/check_files.py <folder> --raw game_raw_ABC123.csv
+python3 ml/check_files.py <folder> --raw game_raw_ABC123.csv --min-rounds 10 --cutoff 2026-11-19T10:00:00+00:00
 ```
 
-Checks columns, values, sorting, unique round ids, 5 test rows per complete player after their
+Checks columns, values, sorting, unique round ids, 5 test rows per test player after all their
 training rows, labels matching the test rows, and (with `--raw`) that the files follow from the
-raw file by the rules of contract section 4.4. Then prints what calibrating the game needs:
+raw file by the release rule of contract section 4.4 (with the release's `--min-rounds` and
+`--cutoff`; without a cutoff, all ended rounds). Then prints what calibrating the game needs:
 accident shares overall, by device, by sex and over attempts, rounds per player, players who never
 or always crashed, a logistic fit of accident on the conditions, and the spread of the fitted
 probabilities. Exit code 1 if a check failed.

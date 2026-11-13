@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Synthetic class for the driving study (data contract section 7).
+"""Synthetic class for the driving study (data contract section 7, v07).
 
 Writes the four files of the data contract (sections 3 and 4) for an invented class, with the
-same columns, rules and number formats as the app's export:
+same columns, rules and number formats as the app's export of a release:
 
     game_train.csv, game_test.csv            (to students)
     game_labels.csv, game_raw_<CODE>.csv     (teacher only)
@@ -15,9 +15,11 @@ plus two teacher-only files the app does not have:
 The invented players have a skill each, learn over attempts (each at their own pace), crash more
 on touch screens, differ slightly by sex, nearly all connect from one country, and meet
 conditions drawn as the app draws them (uniform within the study's ranges). The accident
-probability is logistic in all of that. Rounds take time: a delivered round lasts longer than a
-crash, so crash-prone players fit more training rounds into the training time, as in the game.
-Some rounds time out, a few are interrupted by a reload, and a few players leave early.
+probability is logistic in all of that. Players play freely, as in the app: each has their own
+patience, some stop when the app thanks them after 10 or 20 rounds, a few leave early or close
+the tab without saying they are done, and the teacher ends the class after --class-minutes. Then
+the data is released: each player's last `test_rounds` counted rounds are the test, for players
+with at least `min_rounds`. Some rounds time out, and a few are interrupted by a reload.
 
 By default the intercept is calibrated so the share of accidents over counted rounds is about
 --target-share.
@@ -44,9 +46,8 @@ import numpy as np
 # --- the study, as in the app (data contract section 2, v06) ---------------------------------
 
 DEFAULT_PARAMS = {
-    "training_seconds": 600,
-    "max_training_rounds": None,
     "test_rounds": 5,
+    "min_rounds": 10,
     "scene_count": 10,
     "ranges": {
         "trip_seconds": {"min": 13, "max": 33, "scale": "linear"},
@@ -95,8 +96,12 @@ MODEL = {
     "timeout_logit": -3.2,          # timeout share among non-crash rounds, logit at x_trip = 1
     "timeout_time_pressure": 2.0,   # ... plus this times (1 - x_trip)
     "interrupt_share": 0.01,        # rounds interrupted by a reload (started, never ended)
-    "leave_early_share": 0.03,      # players who leave within the first minute or two
-    "leave_in_test_share": 0.05,    # players who leave during the test phase (not complete)
+    # How long players play (free play, contract v07):
+    "patience_minutes": 6.0,        # median time a player wants to play
+    "patience_sd": 0.4,             # spread on the log scale
+    "checkin_stop_share": 0.25,     # stop when the app thanks them after 10, 20, ... rounds
+    "leave_early_share": 0.05,      # leave within the first one to three minutes
+    "close_tab_share": 0.15,        # stop without pressing "I'm done" (no finished_at)
 }
 
 ROUND_ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # as mlgame.random_code
@@ -192,6 +197,7 @@ class Player:
     skill: float
     learning: float
     rounds: list[dict] = field(default_factory=list)
+    finished_at: datetime | None = None
 
 
 def make_nicks(rng: np.random.Generator, n: int) -> list[str]:
@@ -217,7 +223,7 @@ def make_players(rng: np.random.Generator, n: int, start: datetime, model: dict)
     for nick in make_nicks(rng, n):
         sex = rng.choice(["F", "M", None], p=[0.45, 0.5, 0.05])
         age = None if rng.random() < 0.05 else int(np.clip(round(rng.normal(22.5, 2.0)), 19, 35))
-        device = "touch" if rng.random() < 0.4 else "mouse"
+        device = "touch" if rng.random() < 0.4 else "keyboard"
         country = rng.choice(["CZ", "SK", None], p=[0.93, 0.04, 0.03])
         viewport = (
             [(390, 844), (393, 852), (412, 915), (430, 932)] if device == "touch"
@@ -244,36 +250,27 @@ def accident_logit(model: dict, params: dict, pl: Player, attempt: int, x: dict,
     )
 
 
-def play(rng: np.random.Generator, pl: Player, params: dict, model: dict) -> None:
-    """Plays one player's session as the app would record it (mlg_round_start / mlg_round_end)."""
+def play(rng: np.random.Generator, pl: Player, params: dict, model: dict, class_end: datetime) -> None:
+    """Plays one player's session as the app would record it (mlg_round_start, mlg_round_end,
+    mlg_finish). Free play: the player stops when their patience runs out, maybe at a check-in
+    every 10 rounds, or when the teacher ends the class."""
     ranges = params["ranges"]
-    training_s = float(params.get("training_seconds") or 600)
-    max_train = params.get("max_training_rounds")
-    test_rounds = int(params.get("test_rounds") or 5)
     scene_count = min(int(params.get("scene_count") or 10), len(SCENES))
 
-    # When this player stops playing, if they leave early.
-    u = rng.random()
-    leave_at = None
-    if u < model["leave_early_share"]:
-        leave_at = ("early", float(rng.uniform(15, 120)))
-    elif u < model["leave_early_share"] + model["leave_in_test_share"]:
-        leave_at = ("test", float(rng.uniform(0, 90)))
+    patience = timedelta(minutes=float(model["patience_minutes"] * math.exp(rng.normal(0, model["patience_sd"]))))
+    if rng.random() < model["leave_early_share"]:
+        patience = timedelta(minutes=float(rng.uniform(1, 3)))
+    presses_done = rng.random() >= model["close_tab_share"]
 
     t = pl.joined_at + timedelta(seconds=float(rng.uniform(20, 60)))  # reading, Start driving
-    first_start = None  # the server sets it at the first round that ends
-    counted_test = 0
+    first_start = t
     balance = START_MONEY
     attempt = 0
-    while counted_test < test_rounds and attempt < 400:
+    ended = 0
+    while attempt < 400:
+        if t >= class_end:
+            return  # the teacher closed the study; no "I'm done"
         attempt += 1
-        if leave_at:
-            kind, sec = leave_at
-            if kind == "early" and t >= pl.joined_at + timedelta(seconds=sec):
-                break
-            if kind == "test" and first_start and t >= first_start + timedelta(seconds=training_s + sec):
-                break
-
         values = {k: draw_value(rng, ranges[k]) for k in ("trip_seconds", "car_rate", "obstacle_rate", "pedestrian_rate")}
         # Stored as the app stores them: trip in whole tenths of a second, rates to 6 decimals.
         trip_ms = int(round(values["trip_seconds"] * 10) * 100)
@@ -291,7 +288,7 @@ def play(rng: np.random.Generator, pl: Player, params: dict, model: dict) -> Non
         scene = SCENES[cond["sceneIndex"]]
         start = t
         rnd = {"attempt": attempt, "conditions": cond, "stored": stored, "started_at": start,
-               "ended_at": None, "phase": None, "counted": None, "test_index": None, "outcome": None,
+               "ended_at": None, "counted": None, "outcome": None,
                "time_ms": None, "scene": None, "money_earned": None, "money_lost": None,
                "money_balance": None, "applied": None, "p_true": None}
         pl.rounds.append(rnd)
@@ -315,36 +312,37 @@ def play(rng: np.random.Generator, pl: Player, params: dict, model: dict) -> Non
             else:
                 outcome, dur = "delivered", trip_s * rng.uniform(0.55, 0.95)
 
-        if first_start is None:
-            first_start = start
-        phase = "train" if (
-            start < first_start + timedelta(seconds=training_s)
-            and (max_train is None or attempt <= int(max_train))
-        ) else "test"
+        end = start + timedelta(seconds=float(dur))
+        if end > class_end:
+            return  # closed in the middle of the round: it stays unfinished
         counted = outcome != "timeout"
-        test_index = None
-        if phase == "test" and counted and counted_test < test_rounds:
-            counted_test += 1
-            test_index = counted_test
         earned = REWARD if outcome == "delivered" else 0
         lost = CRASH_COST.get(outcome, 0)
         balance += earned - lost
-        end = start + timedelta(seconds=float(dur))
         rnd.update({
-            "ended_at": end, "phase": phase, "counted": counted, "test_index": test_index,
+            "ended_at": end, "counted": counted,
             "outcome": outcome, "time_ms": int(round(dur * 1000)), "scene": scene,
             "money_earned": earned, "money_lost": lost, "money_balance": balance,
             "applied": dict(cond), "p_true": p if counted else None,
         })
-        # The result screen and NEXT DELIVERY.
+        ended += 1
+        # The result screen and NEXT DELIVERY; every 10 rounds the app thanks them and offers to stop.
         t = end + timedelta(seconds=float(min(30, 2.5 + rng.exponential(3.0))))
+        stop = t - first_start >= patience
+        if ended % 10 == 0 and rng.random() < model["checkin_stop_share"]:
+            stop = True
+        if stop:
+            if presses_done:
+                pl.finished_at = t
+            return
 
 
-def simulate(seed: int, n_players: int, params: dict, model: dict, start: datetime) -> list[Player]:
+def simulate(seed: int, n_players: int, params: dict, model: dict, start: datetime,
+             class_end: datetime) -> list[Player]:
     rng = np.random.default_rng(seed)
     players = make_players(rng, n_players, start, model)
     for pl in players:
-        play(rng, pl, params, model)
+        play(rng, pl, params, model, class_end)
     return players
 
 
@@ -358,12 +356,13 @@ def calibrate_intercept(params: dict, model: dict, target: float, start: datetim
     lo, hi = -6.0, 4.0
     for _ in range(18):
         mid = (lo + hi) / 2
-        share = counted_share(simulate(12345, 400, params, {**model, "intercept": mid}, start))
+        share = counted_share(simulate(12345, 400, params, {**model, "intercept": mid}, start,
+                                       start + timedelta(hours=2)))
         lo, hi = (mid, hi) if share < target else (lo, mid)
     return round((lo + hi) / 2, 3)
 
 
-# --- the files (data contract section 4.4, as mlgame.export_rows) ----------------------------
+# --- the files (data contract section 4.4, v07: the split at release, as mlgame.split_rows) ---
 
 TRAIN_COLUMNS = ["round_id", "player", "sex", "age", "device", "country", "attempt",
                  "trip_seconds", "car_rate", "obstacle_rate", "pedestrian_rate", "scene", "accident"]
@@ -371,16 +370,18 @@ TEST_COLUMNS = [c for c in TRAIN_COLUMNS if c != "accident"]
 LABEL_COLUMNS = ["round_id", "accident"]
 RAW_COLUMNS = [
     "study_code", "player", "sex", "age", "device", "country", "viewport_width", "viewport_height",
-    "joined_at", "attempt", "phase", "test_index", "counted", "round_started_at", "round_ended_at",
+    "joined_at", "finished_at", "attempt", "counted", "round_started_at", "round_ended_at",
     "trip_seconds", "car_rate", "obstacle_rate", "pedestrian_rate", "scene", "outcome", "time_ms",
     "money_earned", "money_lost", "money_balance", "applied",
 ]
 
 
-def build_files(players: list[Player], code: str, test_rounds: int, rng: np.random.Generator):
+def build_files(players: list[Player], code: str, cutoff: datetime, test_rounds: int, min_rounds: int,
+                rng: np.random.Generator):
+    """The raw file, and the release with a cutoff: per player, the last `test_rounds` counted
+    rounds are the test if the player has at least `min_rounds` counted rounds."""
     raw, train, test, truth = [], [], [], []
-    counts = {"dropped_timeout_or_breakdown": 0, "dropped_interrupted": 0,
-              "dropped_no_training_round": 0, "dropped_after_done": 0}
+    counts = {"dropped_timeout_or_breakdown": 0, "dropped_unfinished": 0, "dropped_after_cutoff": 0}
     used_ids: set[str] = set()
 
     def new_id() -> str:
@@ -391,40 +392,36 @@ def build_files(players: list[Player], code: str, test_rounds: int, rng: np.rand
                 return rid
 
     for pl in sorted(players, key=lambda p: (p.nick.lower(), p.nick)):
-        counted_train = sum(1 for r in pl.rounds if r["phase"] == "train" and r["counted"])
-        complete = sum(1 for r in pl.rounds if r["test_index"] is not None) >= test_rounds
-        for r in sorted(pl.rounds, key=lambda r: r["attempt"]):
+        rounds = sorted(pl.rounds, key=lambda r: r["attempt"])
+        usable = [r for r in rounds if r["started_at"] <= cutoff and r["ended_at"] is not None
+                  and r["ended_at"] <= cutoff and r["counted"]]
+        test_attempts = {r["attempt"] for r in usable[-test_rounds:]} if len(usable) >= min_rounds else set()
+        for r in rounds:
             rid = new_id()
             base = {"player": pl.nick, "sex": pl.sex, "age": pl.age, "device": pl.device,
                     "country": pl.country}
             raw.append({
                 **base, "study_code": code, "viewport_width": pl.viewport[0],
                 "viewport_height": pl.viewport[1], "joined_at": iso(pl.joined_at),
-                "attempt": r["attempt"], "phase": r["phase"], "test_index": r["test_index"],
-                "counted": r["counted"], "round_started_at": iso(r["started_at"]),
+                "finished_at": iso(pl.finished_at) if pl.finished_at else None,
+                "attempt": r["attempt"], "counted": r["counted"], "round_started_at": iso(r["started_at"]),
                 "round_ended_at": iso(r["ended_at"]) if r["ended_at"] else None,
                 **r["stored"], "scene": r["scene"], "outcome": r["outcome"], "time_ms": r["time_ms"],
                 "money_earned": r["money_earned"], "money_lost": r["money_lost"],
                 "money_balance": r["money_balance"], "applied": r["applied"],
             })
-            if r["ended_at"] is None:
-                counts["dropped_interrupted"] += 1
+            if r["started_at"] > cutoff:
+                counts["dropped_after_cutoff"] += 1
+                continue
+            if r["ended_at"] is None or r["ended_at"] > cutoff:
+                counts["dropped_unfinished"] += 1
                 continue
             if not r["counted"]:
                 counts["dropped_timeout_or_breakdown"] += 1
                 continue
-            if counted_train == 0:
-                counts["dropped_no_training_round"] += 1
-                continue
             row = {"round_id": rid, **base, "attempt": r["attempt"], **r["stored"],
                    "scene": r["scene"], "accident": int(r["outcome"].startswith("crash"))}
-            if complete and r["phase"] == "test":
-                if r["test_index"] is None:
-                    counts["dropped_after_done"] += 1
-                    continue
-                test.append(row)
-            else:
-                train.append(row)
+            (test if r["attempt"] in test_attempts else train).append(row)
             truth.append({"round_id": rid, "p_true": round(r["p_true"], 6)})
     return raw, train, test, truth, counts
 
@@ -437,11 +434,13 @@ def main() -> None:
                     help="default: a random seed, recorded in synth_model_<CODE>.json. The repo is "
                          "public, so a class's data must not come from a seed anyone can guess")
     ap.add_argument("--code", default="SYNTH1", help="study code in the raw file and file names")
-    ap.add_argument("--params", type=Path, help="study parameters as JSON (default: contract v06)")
+    ap.add_argument("--params", type=Path, help="study parameters as JSON (default: contract v07)")
     ap.add_argument("--target-share", type=float, default=0.4,
                     help="accident share over counted rounds the intercept is calibrated to")
     ap.add_argument("--intercept", type=float, help="use this intercept, no calibration")
     ap.add_argument("--start", default="2026-11-19T09:15:00+00:00", help="when the class starts playing")
+    ap.add_argument("--class-minutes", type=float, default=15,
+                    help="the teacher closes the study and releases the data this long after the start")
     a = ap.parse_args()
 
     if a.seed is None:
@@ -451,9 +450,11 @@ def main() -> None:
     model = dict(MODEL)
     model["intercept"] = a.intercept if a.intercept is not None else calibrate_intercept(params, model, a.target_share, start)
 
-    players = simulate(a.seed, a.players, params, model, start)
+    cutoff = start + timedelta(minutes=a.class_minutes)
+    test_rounds, min_rounds = int(params.get("test_rounds") or 5), int(params.get("min_rounds") or 10)
+    players = simulate(a.seed, a.players, params, model, start, cutoff)
     raw, train, test, truth, counts = build_files(
-        players, a.code, int(params.get("test_rounds") or 5), np.random.default_rng(a.seed + 1))
+        players, a.code, cutoff, test_rounds, min_rounds, np.random.default_rng(a.seed + 1))
 
     a.out.mkdir(parents=True, exist_ok=True)
     write_csv(a.out / "game_train.csv", TRAIN_COLUMNS, train)
@@ -463,12 +464,20 @@ def main() -> None:
     write_csv(a.out / f"game_truth_{a.code}.csv", ["round_id", "p_true"], truth)
     (a.out / f"synth_model_{a.code}.json").write_text(json.dumps(
         {"seed": a.seed, "players": a.players, "code": a.code, "start": a.start,
+         "release": {"cutoff": iso(cutoff), "test_rounds": test_rounds, "min_rounds": min_rounds},
          "params": params, "model": model}, indent=2) + "\n", encoding="utf-8")
 
     complete = len({r["player"] for r in test})
+    per = {}
+    for r in train + test:
+        per[r["player"]] = per.get(r["player"], 0) + 1
+    n = sorted(per.values())
     share_train = sum(r["accident"] for r in train) / max(1, len(train))
     share_test = sum(r["accident"] for r in test) / max(1, len(test))
-    print(f"seed {a.seed}, intercept {model['intercept']}; players {a.players}, complete {complete}")
+    print(f"seed {a.seed}, intercept {model['intercept']}; players {a.players}, in the test file {complete}, "
+          f"done {sum(1 for p in players if p.finished_at)}")
+    if n:
+        print(f"counted rounds per player: min {n[0]}, median {n[len(n) // 2]}, max {n[-1]}")
     print(f"game_train.csv {len(train)} rows, accident share {share_train:.3f}")
     print(f"game_test.csv  {len(test)} rows, accident share {share_test:.3f}")
     print("dropped: " + ", ".join(f"{k.removeprefix('dropped_')} {v}" for k, v in counts.items()))

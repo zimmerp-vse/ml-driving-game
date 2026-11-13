@@ -47,6 +47,17 @@ Applied so far (keep this list current):
 | `20261107090000_mlg_submissions_reports.sql` | students' files, team submissions, reports |
 | `20261108090000_mlg_easier_defaults.sql` | easier default spawn rates for new studies |
 
+To run next (in this order), then move them up into the table:
+
+| file | what |
+|---|---|
+| `20261109090000_mlg_replay_nick_suffix.sql` | Replay studies: a taken nick gets _2, _3 |
+| `20261113090000_mlg_free_play_releases.sql` | free play, "I'm done", the split at release, numbered releases, `keyboard` (contract v07) |
+
+The second one changes how existing studies work too (they become free play; their old
+phases stay in the database but are no longer used). It renames the device `mouse` to
+`keyboard` in existing rows. Create a new study after running it.
+
 ## 2. Supabase: the keys
 
 **Project Settings** (gear icon) then **API Keys**:

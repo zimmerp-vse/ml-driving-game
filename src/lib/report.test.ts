@@ -6,8 +6,8 @@ const row = (file: 'train' | 'test', player: string, round_id: string, accident:
 
 function data(): ReportData {
   return {
-    study: { code: 'ABC234', title: 't', test_rounds: 2 },
-    study_full: { title: 't', code: 'ABC234', status: 'open', created_at: '', closed_at: null, params: { test_rounds: 2, training_seconds: 600 } },
+    study: { code: 'ABC234', title: 't' },
+    study_full: { title: 't', code: 'ABC234', status: 'open', created_at: '', closed_at: null, params: { test_rounds: 2, min_rounds: 3 } },
     files: [
       // anna crashes a lot in training, bob rarely.
       row('train', 'anna', 'a1', 1), row('train', 'anna', 'a2', 1), row('train', 'anna', 'a3', 0),
@@ -16,8 +16,9 @@ function data(): ReportData {
       row('test', 'bob', 'b4', 0), row('test', 'bob', 'b5', 0),
     ],
     raw: [],
-    counts: { players_complete: 2, dropped_timeout_or_breakdown: 1, dropped_interrupted: 0 } as any,
-    players: [{ nick: 'anna', device: 'touch', country: 'CZ' }, { nick: 'bob', device: 'mouse', country: 'CZ' }, { nick: 'cleo', device: 'touch', country: null }],
+    release: { number: 1, created_at: '', cutoff: '', test_rounds: 2, min_rounds: 3, counts: {} as any },
+    counts: { players_in_test: 2, dropped_timeout_or_breakdown: 1, dropped_unfinished: 0 } as any,
+    players: [{ nick: 'anna', device: 'touch', country: 'CZ' }, { nick: 'bob', device: 'keyboard', country: 'CZ' }, { nick: 'cleo', device: 'touch', country: null }],
     uploads: [],
     last_accepted: [
       { team: 'Perfect-ish', uploaded_at: 'x', rows: [{ round_id: 'a4', p: 0.9 }, { round_id: 'a5', p: 0.9 }, { round_id: 'b4', p: 0.1 }, { round_id: 'b5', p: 0.1 }] },
@@ -72,21 +73,21 @@ describe('summary', () => {
     const d = data();
     d.raw = [
       { attempt: 1, device: 'touch', outcome: 'crash_car' },
-      { attempt: 1, device: 'mouse', outcome: 'delivered' },
+      { attempt: 1, device: 'keyboard', outcome: 'delivered' },
       { attempt: 2, device: 'touch', outcome: 'timeout' },
       { attempt: 2, device: 'touch', outcome: 'delivered' },
-      { attempt: 30, device: 'mouse', outcome: 'crash_obstacle' },
-      { attempt: 3, device: 'mouse', outcome: null },
+      { attempt: 30, device: 'keyboard', outcome: 'crash_obstacle' },
+      { attempt: 3, device: 'keyboard', outcome: null },
     ];
     const s = summarize(d);
     expect(s.joined).toBe(3);
-    expect(s.byDevicePlayers).toEqual([{ label: 'touch', n: 2 }, { label: 'mouse', n: 1 }]);
+    expect(s.byDevicePlayers).toEqual([{ label: 'touch', n: 2 }, { label: 'keyboard', n: 1 }]);
     expect(s.byCountryPlayers).toEqual([{ label: 'CZ', n: 2 }, { label: 'unknown', n: 1 }]);
     expect(s.roundsRecorded).toBe(6);
     expect(s.roundsCounted).toBe(4);
     expect(s.overall).toMatchObject({ n: 4, accidents: 2, share: 0.5 });
     expect(s.byAttempt.map((x) => [x.label, x.n, x.share])).toEqual([['1', 2, 0.5], ['2', 1, 0], ['26+', 1, 1]]);
-    expect(s.byDevice.map((x) => [x.label, x.n])).toEqual([['mouse', 2], ['touch', 2]]);
+    expect(s.byDevice.map((x) => [x.label, x.n])).toEqual([['keyboard', 2], ['touch', 2]]);
   });
 });
 
@@ -96,7 +97,7 @@ describe('report HTML', () => {
   it('is one self-contained page: escaped names, no scripts, no external files, no dashes', () => {
     const d = data();
     d.last_accepted[0].team = '<script>alert(1)</script>';
-    d.uploads = [{ team: '<b>x</b>', uploaded_at: '2026-11-19T10:00:00Z', accepted: false, messages: [{ level: 'error', code: 'missing_ids', n: 2 }] }];
+    d.uploads = [{ team: '<b>x</b>', uploaded_at: '2026-11-19T10:00:00Z', accepted: false, release: 1, messages: [{ level: 'error', code: 'missing_ids', n: 2 }] }];
     const html = renderReport(d, 'final', new Date('2026-11-19T12:00:00Z'));
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(html).not.toMatch(/<script/i);

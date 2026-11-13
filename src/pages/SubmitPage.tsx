@@ -14,6 +14,7 @@ interface PageData {
   title?: string;
   data_released?: boolean;
   submissions_open?: boolean;
+  release?: { number: number; created_at: string };
   train?: Record<string, unknown>[];
   test?: Record<string, unknown>[];
 }
@@ -54,6 +55,13 @@ export default function SubmitPage() {
               <b>game_train.csv</b> has the training rounds with the target <code>accident</code>.{' '}
               <b>game_test.csv</b> has the rounds you predict, without the target.
             </p>
+            {data.release && (
+              <p className="rounded-lg bg-sky-50 p-3 text-sm text-sky-900">
+                Data release {data.release.number}, from {new Date(data.release.created_at).toLocaleString()}.
+                {data.release.number > 1 && ' The teacher released new data: please download both files again and upload new predictions.'}
+                {' '}If the teacher releases new data later, earlier predictions no longer count.
+              </p>
+            )}
             <div className="flex flex-wrap gap-3">
               <DownloadButton name="game_train.csv" columns={TRAIN_COLUMNS} rows={data.train ?? []} />
               <DownloadButton name="game_test.csv" columns={TEST_COLUMNS} rows={data.test ?? []} />

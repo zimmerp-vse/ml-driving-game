@@ -16,15 +16,19 @@ belong to a study. First use: ML2, block 6, 19.11.2026.
 
 Milestones 1 to 3 of the spec (section 11):
 
-* join with the country lookup, play with a server-drawn schedule, phases decided by the server;
+* join with the country lookup, play with a server-drawn schedule; **free play** (contract v07):
+  between rounds a bar with rounds and time and a Menu (the player's numbers, Keep driving,
+  I'm done), a check-in every 10 rounds, the numbers on the Done screen;
 * admin: studies (create, open, close, delete, Replay for test studies: a finished player
   may play again, and a taken nick gets _2, _3), and per study
-  (`/admin/study/:id`) live progress every 5 s, the four class files with the counts of the
-  contract's rules, and the switches "Release data to students" and "Submissions open";
+  (`/admin/study/:id`) live progress every 5 s, **data releases** (settings, a preview with the
+  numbers and the learning curve, then numbered releases; the latest goes to students and teams;
+  each release's files and the raw file downloadable), and the switches for the students;
 * projector page `/screen/:code` with QR code and counts;
-* team page `/s/:code/submit`: the two files once released, upload of predictions with a team
-  PIN, accepted or rejected with reasons, never a score;
-* reports (study page): a running report any time, the final report when the study is closed;
+* team page `/s/:code/submit`: the two files of the latest release, upload of predictions with a
+  team PIN, checked against that release, accepted or rejected with reasons, never a score;
+* reports (study page), for the latest release: a running report any time, the final report when
+  the study is closed;
   participation, the learning curve, accidents by device, the uploads, and the leaderboard (log
   loss, bootstrap intervals over players, two reference rows); one self-contained HTML file.
 
@@ -49,10 +53,11 @@ student browser ──/api/join──▶ Vercel function ──mlg_join_study (s
 ```
 
 * The server draws each round's conditions deterministically from the study seed,
-  the player and the attempt, stores them, and decides phase (`train`/`test`),
-  `counted` and `test_index` at the end of each round. The app only relays.
-* The game is told nothing about phases; the HUD shows the round number without a
-  total. After the fifth counted test round the app sends `QUIT` and shows "Done".
+  the player and the attempt, stores them, and marks a round `counted` (delivered or
+  crashed) when it ends. The app only relays.
+* Players play as long as they like and stop with "I'm done" (the app sends `QUIT`).
+  The split into training and test is made when the teacher releases the data
+  (`mlgame.split_rows`): each player's last 5 counted rounds, for players with at least 10.
 * A reload resumes: the token is in `localStorage` per study code; the interrupted
   round stays started and never ended.
 
@@ -73,11 +78,11 @@ student browser ──/api/join──▶ Vercel function ──mlg_join_study (s
 ```
 api/join.ts                 Vercel function: country lookup, forwards the join
 src/pages/StudentPage.tsx   /s/:code: join form, game, done
-src/components/GameFrame.tsx  the iframe and the game protocol
+src/components/GameFrame.tsx  the iframe, the game protocol, the bar and Menu between rounds
 src/pages/AdminPage.tsx     /admin (studies) and the sign-in gate
 src/pages/StudyPage.tsx     /admin/study/:id (progress, files, switches)
 src/pages/ScreenPage.tsx    /screen/:code (projector)
-src/lib/exports.ts          the four CSV files (rows chosen in SQL: mlgame.export_rows)
+src/lib/exports.ts          the four CSV files (rows chosen in SQL at release: mlgame.split_rows)
 src/pages/SubmitPage.tsx    /s/:code/submit (teams)
 src/lib/submission.ts       reading a predictions file; wording the server's answers
 src/lib/report.ts           report numbers: log loss, reference rows, bootstrap, shares
@@ -97,7 +102,7 @@ Needs Node 20+.
 npm install
 npm test            # unit and database tests (the migrations run in an in-process Postgres)
 npx playwright install chromium   # once
-npm run test:e2e    # end-to-end: two simulated players, both phases, a timeout, a resume, admin
+npm run test:e2e    # end-to-end: two players play freely, Menu, I'm done, a resume, a release
 ```
 
 The end-to-end test (`tests/e2e/study.spec.ts`, spec section 10) runs the real app in a real

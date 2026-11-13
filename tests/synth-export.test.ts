@@ -1,13 +1,15 @@
-// The app's export against the synthetic generator (data contract sections 4 and 7).
+// The app's release against the synthetic generator (data contract v07, sections 4 and 7).
 //
-// tests/fixtures/synth was written by ml/synth.py (12 players, seed 4: three players not
-// complete, timeouts, interrupted rounds). Its raw file is loaded into the app's tables as the
-// app would have stored it; the app's own export (mlgame.export_rows, mlg_admin_export,
+// tests/fixtures/synth was written by ml/synth.py (12 players, seed 4: four players with too few
+// rounds for the test, two who never said they were done, timeouts, an unfinished round). Its
+// raw file is loaded into the app's tables as the app would have stored it; a release with the
+// generator's cutoff and settings (mlgame.split_rows, mlg_admin_create_release, mlg_admin_export,
 // src/lib/exports.ts) must then produce exactly the generator's four files, byte for byte.
 // So the generator and the app apply the same rules and the same formats.
 //
 // Regenerate the fixture with:
-//   python3 ml/synth.py --out tests/fixtures/synth --players 12 --seed 4 --intercept -1.97
+//   python3 ml/synth.py --out tests/fixtures/synth --players 12 --seed 4 --intercept -2.16 --start 2026-11-02T09:15:00+00:00
+//   (a start in the past: a release never takes rounds after now)
 import { describe, it, expect, beforeAll } from 'vitest';
 import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
@@ -71,10 +73,10 @@ beforeAll(async () => {
     if (!respondents.has(r.player)) {
       const res = await db.query<{ id: string }>(
         `insert into mlgame.respondents (study_id, nick, nick_lower, sex, age, device, country,
-           viewport_width, viewport_height, token_hash, joined_at)
-         values ($1, $2, lower($2), $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+           viewport_width, viewport_height, token_hash, joined_at, finished_at)
+         values ($1, $2, lower($2), $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
         [st.id, r.player, nul(r.sex), nul(r.age), r.device, nul(r.country), r.viewport_width,
-         r.viewport_height, `hash-${r.player}`, r.joined_at],
+         r.viewport_height, `hash-${r.player}`, r.joined_at, nul(r.finished_at)],
       );
       respondents.set(r.player, res.rows[0].id);
     }
@@ -85,22 +87,26 @@ beforeAll(async () => {
       pedestrianSpawnRate: Number(r.pedestrian_rate), sceneIndex: Math.max(0, SCENES.indexOf(r.scene)),
     };
     await db.query(
-      `insert into mlgame.rounds (study_id, respondent_id, round_id, attempt, phase, counted, test_index,
+      `insert into mlgame.rounds (study_id, respondent_id, round_id, attempt, counted,
          conditions, applied, scene, outcome, time_ms, money_earned, money_lost, money_balance,
          started_at, ended_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [st.id, respondents.get(r.player), ids.get(`${r.player}|${r.attempt}`) ?? `DROP${String(++n).padStart(4, '0')}`,
-       r.attempt, nul(r.phase), r.counted === '' ? null : r.counted === 'true', nul(r.test_index),
+       r.attempt, r.counted === '' ? null : r.counted === 'true',
        JSON.stringify(conditions), nul(r.applied), nul(r.scene), nul(r.outcome), nul(r.time_ms),
        nul(r.money_earned), nul(r.money_lost), nul(r.money_balance), r.round_started_at, nul(r.round_ended_at)],
     );
   }
+  // The release, as the teacher would make it at the end of the class.
+  const rel = model.release;
+  await call(db, 'authenticated', 'public.mlg_admin_create_release($1, $2, $3, $4)',
+    [st.id, rel.cutoff, rel.test_rounds, rel.min_rounds], ADMIN);
   const x = await call<ExportResult>(db, 'authenticated', 'public.mlg_admin_export($1)', [st.id], ADMIN);
   files = buildFiles(x);
   counts = x.counts;
 }, 30000);
 
-describe('the app exports the synthetic class exactly as the generator wrote it', () => {
+describe('a release of the synthetic class gives exactly the files of the generator', () => {
   for (const name of ['game_train.csv', 'game_test.csv', 'game_labels.csv', 'game_raw_SYNTH1.csv']) {
     it(name, () => {
       const got = files.find((f) => f.name === name)?.content ?? '';
@@ -113,8 +119,9 @@ describe('the app exports the synthetic class exactly as the generator wrote it'
 
   it('the fixture has the cases the rules are about', () => {
     expect(counts.players_total).toBe(12);
-    expect(counts.players_complete).toBe(9);
+    expect(counts.players_in_test).toBe(8);
+    expect(counts.players_only_train).toBe(4);
     expect(counts.dropped_timeout_or_breakdown).toBeGreaterThan(0);
-    expect(counts.dropped_interrupted).toBeGreaterThan(0);
+    expect(counts.dropped_unfinished).toBeGreaterThan(0);
   });
 });

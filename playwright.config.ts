@@ -22,7 +22,7 @@ export default defineConfig({
       command: 'npx vite-node tests/mock-supabase.ts',
       port: MOCK_PORT,
       reuseExistingServer: false,
-      env: { MOCK_PORT: String(MOCK_PORT), MOCK_PARAMS: '{"training_seconds": 4, "test_rounds": 2}' },
+      env: { MOCK_PORT: String(MOCK_PORT), MOCK_PARAMS: '{"test_rounds": 2, "min_rounds": 3}' },
     },
     {
       command: 'node tests/e2e/serve-fake-game.mjs',

@@ -49,6 +49,6 @@ group('server messages', () => {
 group('plurals', () => {
   it('one and many', () => {
     expect(describe({ level: 'warning', code: 'zero_or_one', n: 1 })).toMatch(/^1 value of p is exactly/);
-    expect(describe({ level: 'error', code: 'missing_ids', n: 6, examples: ['A'] })).toMatch(/^6 rounds of game_test.csv are missing from your file, for example A\.$/);
+    expect(describe({ level: 'error', code: 'missing_ids', n: 6, examples: ['A'] })).toMatch(/^6 rounds of game_test.csv are missing from your file, for example A\. Did you use the latest game_test\.csv\?$/);
   });
 });

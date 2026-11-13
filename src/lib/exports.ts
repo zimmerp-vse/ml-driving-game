@@ -1,7 +1,7 @@
 // The four files of the data contract, built from mlg_admin_export's result.
 // Format (contract section 4): UTF-8 without BOM, comma separated, decimal point, header row,
-// missing values as empty fields. Which rows go where is decided in the database
-// (mlgame.export_rows); this module only lays them out.
+// missing values as empty fields. Which rows go where is decided in the database when the
+// teacher releases the data (mlgame.split_rows, contract v07); this module only lays them out.
 
 export const TRAIN_COLUMNS = [
   'round_id', 'player', 'sex', 'age', 'device', 'country', 'attempt',
@@ -12,7 +12,7 @@ export const LABEL_COLUMNS = ['round_id', 'accident'] as const;
 // Contract section 3, in its order.
 export const RAW_COLUMNS = [
   'study_code', 'player', 'sex', 'age', 'device', 'country', 'viewport_width', 'viewport_height',
-  'joined_at', 'attempt', 'phase', 'test_index', 'counted', 'round_started_at', 'round_ended_at',
+  'joined_at', 'finished_at', 'attempt', 'counted', 'round_started_at', 'round_ended_at',
   'trip_seconds', 'car_rate', 'obstacle_rate', 'pedestrian_rate', 'scene', 'outcome', 'time_ms',
   'money_earned', 'money_lost', 'money_balance', 'applied',
 ] as const;
@@ -24,17 +24,29 @@ export interface ExportCounts {
   train_rows: number;
   test_rows: number;
   dropped_timeout_or_breakdown: number;
-  dropped_interrupted: number;
-  dropped_no_training_round: number;
-  dropped_after_done: number;
+  dropped_unfinished: number;
+  dropped_after_cutoff: number;
   players_total: number;
-  players_complete: number;
+  players_in_test: number;
   players_in_train: number;
+  players_only_train: number;
   players_left_out: number;
 }
 
+/** A stored release of the data: its settings and the counts it was made with. */
+export interface Release {
+  number: number;
+  created_at: string;
+  cutoff: string;
+  test_rounds: number;
+  min_rounds: number;
+  counts: ExportCounts;
+}
+
 export interface ExportResult {
-  study: { code: string; title: string; test_rounds: number };
+  study: { code: string; title: string };
+  /** The release the files come from; null before the first release (a preview with the defaults). */
+  release: Release | null;
   files: (Row & { file: 'train' | 'test' })[];
   raw: Row[];
   counts: ExportCounts;

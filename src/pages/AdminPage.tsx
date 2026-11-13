@@ -93,7 +93,6 @@ function Studies({ email }: { email: string }) {
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [consent, setConsent] = useState(DEFAULT_CONSENT_TEXT);
-  const [trainingSeconds, setTrainingSeconds] = useState('600');
 
   const refresh = useCallback(async () => {
     const { data, error } = await supabase.rpc('mlg_admin_list_studies');
@@ -107,11 +106,10 @@ function Studies({ email }: { email: string }) {
 
   async function create(e: FormEvent) {
     e.preventDefault();
-    const secs = Number(trainingSeconds);
     const { error } = await supabase.rpc('mlg_admin_create_study', {
       p_title: title,
       p_consent_text: consent,
-      p_params: Number.isFinite(secs) && secs > 0 ? { training_seconds: Math.round(secs) } : null,
+      p_params: null,
     });
     if (error) return setError(error.message);
     setTitle('');
@@ -240,12 +238,11 @@ function Studies({ email }: { email: string }) {
           <textarea value={consent} onChange={(e) => setConsent(e.target.value)} rows={4}
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2" />
         </label>
-        <label className="block text-sm">
-          Training time in seconds
-          <input value={trainingSeconds} onChange={(e) => setTrainingSeconds(e.target.value)} inputMode="numeric"
-            className="ml-2 w-24 rounded border border-slate-300 px-2 py-1" />
-        </label>
-        <p className="text-xs text-slate-500">Other parameters use the defaults of the data contract (5 test rounds, ranges v03).</p>
+        <p className="text-xs text-slate-500">
+          Students play as long as they like. The split into training and test is made when you release the data
+          (default: each player's last 5 counted rounds are the test, for players with at least 10). Game conditions use
+          the defaults of the data contract (ranges v03).
+        </p>
         <p className="text-xs text-slate-500">For a test study, tick Replay in the list: a player who is done can then join again with a new nick. Leave it off in class.</p>
         <button className="rounded bg-blue-700 px-4 py-2 font-semibold text-white">Create study</button>
         <p className="text-xs text-slate-500">Students can join after you click Open in the list.</p>

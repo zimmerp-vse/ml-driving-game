@@ -4,11 +4,13 @@
 Works on the app's export and on ml/synth.py's output alike:
 
     python3 ml/check_files.py <folder>                 game_train.csv, game_test.csv, game_labels.csv
-    python3 ml/check_files.py <folder> --raw game_raw_ABC123.csv
+    python3 ml/check_files.py <folder> --raw game_raw_ABC123.csv --min-rounds 10 [--cutoff ISO-TIME]
 
-Checks (contract sections 4 and 4.4): columns, values, sorting, unique round ids, every
-complete player with exactly --test-rounds test rows after their training rows, labels matching
-the test rows; with --raw also that the files follow from the raw file by the rules.
+Checks (contract v07, sections 4 and 4.4): columns, values, sorting, unique round ids, every
+player in the test file with exactly --test-rounds test rows after all their training rows,
+labels matching the test rows; with --raw also that the files follow from the raw file by the
+release rule (the last --test-rounds counted rounds of players with at least --min-rounds,
+rounds ended up to --cutoff, default all).
 
 Then a summary for calibrating the game: accident shares overall, by device, by sex and over
 attempts; rounds per player; players who never or always crashed in training; and a logistic
@@ -98,7 +100,7 @@ def check_sorted(name: str, rows: list[dict]) -> None:
             break
 
 
-def check(folder: Path, test_rounds: int, raw_path: Path | None):
+def check(folder: Path, test_rounds: int, raw_path: Path | None, min_rounds: int = 10, cutoff: str | None = None):
     train = read(folder / "game_train.csv", TRAIN_COLUMNS)
     test = read(folder / "game_test.csv", TEST_COLUMNS)
     labels_path = folder / "game_labels.csv"
@@ -140,32 +142,34 @@ def check(folder: Path, test_rounds: int, raw_path: Path | None):
             fail("game_labels.csv: accident not 0 or 1")
 
     if raw_path is not None:
-        check_against_raw(read(raw_path, None), train, test, test_rounds)
+        check_against_raw(read(raw_path, None), train, test, test_rounds, min_rounds, cutoff)
     return train, test, labels
 
 
-def check_against_raw(raw: list[dict], train: list[dict], test: list[dict], test_rounds: int) -> None:
-    """The rules of section 4.4, applied to the raw file independently of the app."""
+def check_against_raw(raw: list[dict], train: list[dict], test: list[dict], test_rounds: int,
+                      min_rounds: int, cutoff: str | None) -> None:
+    """The release rule of section 4.4 (v07), applied to the raw file independently of the app."""
+    from datetime import datetime
+
+    def t(s: str):
+        return datetime.fromisoformat(s)
+
+    limit = t(cutoff) if cutoff else None
     per = defaultdict(list)
     for r in raw:
         per[r["player"]].append(r)
     want_train, want_test = set(), set()
     for p, rows in per.items():
-        counted_train = sum(1 for r in rows if r["phase"] == "train" and r["counted"] == "true")
-        complete = sum(1 for r in rows if r["test_index"]) >= test_rounds
-        if counted_train == 0:
-            continue
-        for r in rows:
-            if not r["round_ended_at"] or r["counted"] != "true":
-                continue
-            key = (p, r["attempt"])
-            if complete and r["phase"] == "test":
-                if r["test_index"]:
-                    want_test.add(key)
-            else:
-                want_train.add(key)
+        rows = sorted(rows, key=lambda r: int(r["attempt"]))
+        usable = [r for r in rows
+                  if r["round_ended_at"] and r["counted"] == "true"
+                  and (limit is None or (t(r["round_started_at"]) <= limit and t(r["round_ended_at"]) <= limit))]
+        for r in usable:
             if r["outcome"] not in ("delivered", "crash_car", "crash_obstacle", "crash_pedestrian"):
                 fail(f"raw: {p} attempt {r['attempt']}: counted but outcome {r['outcome']!r}")
+        last = {r["attempt"] for r in usable[-test_rounds:]} if len(usable) >= min_rounds else set()
+        for r in usable:
+            (want_test if r["attempt"] in last else want_train).add((p, r["attempt"]))
     got_train = {(r["player"], r["attempt"]) for r in train}
     got_test = {(r["player"], r["attempt"]) for r in test}
     if got_train != want_train:
@@ -178,8 +182,10 @@ def check_against_raw(raw: list[dict], train: list[dict], test: list[dict], test
             fail(f"game_train.csv: {r['player']} attempt {r['attempt']}: accident does not match the raw outcome")
             break
     n_timeout = sum(1 for r in raw if r["round_ended_at"] and r["counted"] != "true")
-    n_interrupted = sum(1 for r in raw if not r["round_ended_at"])
-    print(f"raw: {len(raw)} rounds, {len(per)} players; timeouts or breakdowns {n_timeout}, interrupted {n_interrupted}")
+    n_unfinished = sum(1 for r in raw if not r["round_ended_at"])
+    n_done = len({r["player"] for r in raw if r.get("finished_at")})
+    print(f"raw: {len(raw)} rounds, {len(per)} players ({n_done} said they were done); "
+          f"timeouts or breakdowns {n_timeout}, unfinished {n_unfinished}")
 
 
 # --- summary -----------------------------------------------------------------------------------
@@ -208,7 +214,7 @@ def summary(train: list[dict], test: list[dict], labels: list[dict] | None) -> N
     test_l = [{**r, "accident": acc[r["round_id"]]} for r in test if r["round_id"] in acc]
     rows = train + test_l
     players = sorted({r["player"] for r in train})
-    print(f"\nplayers: {len(players)} in game_train.csv, {len({r['player'] for r in test})} complete (in game_test.csv)")
+    print(f"\nplayers: {len(players)} in game_train.csv, {len({r['player'] for r in test})} in game_test.csv")
     print(f"accident share: train {share(train)}" + (f", test {share(test_l)}" if test_l else ""))
     for col in ("device", "sex"):
         parts = [f"{v or 'missing'} {share([r for r in train if r[col] == v])}" for v in sorted({r[col] for r in train})]
@@ -224,6 +230,11 @@ def summary(train: list[dict], test: list[dict], labels: list[dict] | None) -> N
         per[r["player"]].append(int(r["accident"]))
     n = np.array([len(v) for v in per.values()])
     print(f"training rows per player: min {n.min()}, median {int(np.median(n))}, max {n.max()}")
+    allp = defaultdict(int)
+    for r in rows:
+        allp[r["player"]] += 1
+    m = np.array(sorted(allp.values()))
+    print(f"counted rounds per player (both files): min {m.min()}, median {int(np.median(m))}, max {m.max()}")
     never = [p for p, v in per.items() if sum(v) == 0]
     always = [p for p, v in per.items() if sum(v) == len(v)]
     print(f"players who never crashed in training: {len(never)}; who always crashed: {len(always)}")
@@ -254,9 +265,11 @@ def main() -> None:
     ap.add_argument("folder", type=Path)
     ap.add_argument("--raw", type=Path, help="the raw file, to check the files follow from it")
     ap.add_argument("--test-rounds", type=int, default=5)
+    ap.add_argument("--min-rounds", type=int, default=10)
+    ap.add_argument("--cutoff", help="the release's cutoff (ISO time); default: all ended rounds")
     a = ap.parse_args()
     raw = a.raw if a.raw is None or a.raw.exists() else a.folder / a.raw
-    train, test, labels = check(a.folder, a.test_rounds, raw)
+    train, test, labels = check(a.folder, a.test_rounds, raw, a.min_rounds, a.cutoff)
     if errors:
         print("FAILED:")
         for e in errors:

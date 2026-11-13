@@ -1,16 +1,23 @@
-// The embedded game. Gets a schedule from the server, sends INIT, reports every round,
-// and sends QUIT when the server says the player is done (app_spec section 5).
-// No timer and no phase is shown: the student just drives.
+// The embedded game. Gets a schedule from the server, sends INIT, reports every round.
+// Players play as long as they like (data contract v07). Between rounds a small bar shows their
+// rounds and time with a Menu button; every 10 rounds the menu opens by itself to thank them.
+// The menu shows their numbers and lets them say "I'm done", which ends their game (QUIT).
+// Student-facing text: plain English, no dashes.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GAME_ORIGIN, GAME_URL } from '../lib/defaults';
-import { roundEnd, roundStart, startSchedule, withRetry, type ScheduleResult } from '../lib/api';
+import {
+  finishPlaying, roundEnd, roundStart, startSchedule, withRetry,
+  type PlayerStats, type Position, type ScheduleResult,
+} from '../lib/api';
 import { Message } from '../App';
 import { ControlsHint } from './ControlsHint';
+import { StatsGrid, minutesPlayed, roundsText } from './PlayerStats';
 
 const SOURCE = 'dash-delivery';
 const PROTOCOL_VERSION = 1;
-const TOTAL_ROUNDS = 80;
+const TOTAL_ROUNDS = 100; // per schedule; a new one is fetched when the game runs out
+const CHECK_IN_EVERY = 10;
 
 type Session = Required<Pick<ScheduleResult, 'from_attempt' | 'rounds' | 'fixed' | 'nick' | 'respondent_id'>>;
 
@@ -21,7 +28,7 @@ export function GameFrame({
   onError,
 }: {
   token: string;
-  onDone: () => void;
+  onDone: (position?: Position) => void;
   onNotOpen: () => void;
   onError: () => void;
 }) {
@@ -39,6 +46,15 @@ export function GameFrame({
   const readyRef = useRef(false);
   const startedRef = useRef(false);
   const initSentRef = useRef(false);
+  // Between rounds: the player's numbers, and the menu ('menu' opened by the player, 'checkin'
+  // opened by itself every 10 rounds).
+  const [stats, setStats] = useState<PlayerStats | null>(null);
+  const [minRounds, setMinRounds] = useState(10);
+  const [between, setBetween] = useState(false);
+  const [panel, setPanel] = useState<null | 'menu' | 'checkin'>(null);
+  const panelRef = useRef(panel);
+  panelRef.current = panel;
+  const [finishing, setFinishing] = useState(false);
   const callbacks = useRef({ onDone, onNotOpen, onError });
   callbacks.current = { onDone, onNotOpen, onError };
 
@@ -47,11 +63,11 @@ export function GameFrame({
   }, []);
 
   const finish = useCallback(
-    (how: 'done' | 'not_open' | 'error') => {
+    (how: 'done' | 'not_open' | 'error', position?: Position) => {
       if (finishedRef.current) return;
       finishedRef.current = true;
       post('QUIT');
-      if (how === 'done') callbacks.current.onDone();
+      if (how === 'done') callbacks.current.onDone(position);
       else if (how === 'not_open') callbacks.current.onNotOpen();
       else callbacks.current.onError();
     },
@@ -63,7 +79,7 @@ export function GameFrame({
     try {
       const s = await withRetry(() => startSchedule(token, TOTAL_ROUNDS));
       if (!s.ok) return finish('error');
-      if (s.done) return finish('done');
+      if (s.done) return finish('done', s);
       if (s.study_status !== 'open' || !s.rounds) return finish('not_open');
       const next: Session = {
         from_attempt: s.from_attempt!,
@@ -73,6 +89,8 @@ export function GameFrame({
         respondent_id: s.respondent_id,
       };
       sessionRef.current = next;
+      if (s.stats) setStats(s.stats);
+      if (s.min_rounds) setMinRounds(s.min_rounds);
       readyRef.current = false;
       initSentRef.current = false;
       startedRef.current = false;
@@ -97,8 +115,8 @@ export function GameFrame({
     post('INIT', {
       session: { sessionId: s.respondent_id },
       player: { nickname: s.nick },
-      difficulty: { ...s.fixed, totalRounds: TOTAL_ROUNDS, schedule: s.rounds },
-      ui: { showQuitButton: false, autoStart: true, showRoundTotal: false },
+      difficulty: { ...s.fixed, totalRounds: TOTAL_ROUNDS, schedule: s.rounds, safeFinish: true },
+      ui: { showQuitButton: false, autoStart: true, showRoundTotal: false, timeRing: true },
     });
   }, [post]);
 
@@ -114,10 +132,28 @@ export function GameFrame({
     sendInit();
   }, [focusGame, sendInit]);
 
+  const keepDriving = useCallback(() => {
+    setPanel(null);
+    focusGame();
+  }, [focusGame]);
+
+  const imDone = useCallback(async () => {
+    setFinishing(true);
+    try {
+      const r = await withRetry(() => finishPlaying(token));
+      if (r.ok) finish('done', r);
+      else finish('error');
+    } catch {
+      finish('error');
+    }
+  }, [token, finish]);
+
   // If a key press ever lands on this page instead of the game, move focus back into the game.
   useEffect(() => {
     if (!started) return;
-    const onKey = () => focusGame();
+    const onKey = () => {
+      if (!panelRef.current) focusGame();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [started, focusGame]);
@@ -138,6 +174,8 @@ export function GameFrame({
         readyRef.current = true;
         sendInit();
       } else if (m.type === 'ROUND_START') {
+        setBetween(false);
+        setPanel(null);
         const attempt = s.from_attempt + m.payload.round - 1;
         enqueue(async () => {
           const r = await withRetry(() => roundStart(token, attempt));
@@ -159,8 +197,14 @@ export function GameFrame({
               applied: p.applied,
             }),
           );
-          if (r.ok && r.done) finish('done');
-          else if (!r.ok && r.error === 'unknown_token') finish('error');
+          if (r.ok && r.done) return finish('done', r);
+          if (!r.ok) {
+            if (r.error === 'unknown_token') finish('error');
+            return;
+          }
+          setStats(r.stats);
+          setBetween(true);
+          if (r.stats.rounds > 0 && r.stats.rounds % CHECK_IN_EVERY === 0) setPanel('checkin');
         });
       } else if (m.type === 'GAME_END') {
         // The game ran out of rounds before the player was done: start again with a new schedule.
@@ -228,6 +272,48 @@ export function GameFrame({
                 Start driving
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {started && between && !panel && stats && (
+        <div className="fixed bottom-3 left-3 z-10 flex items-center gap-3 rounded-full bg-slate-950/85 py-1.5 pl-4 pr-1.5 text-sm text-white shadow-lg">
+          <span className="tabular-nums">
+            {roundsText(stats.rounds)} · {minutesPlayed(stats.seconds)}
+          </span>
+          <button onClick={() => setPanel('menu')} className="rounded-full bg-orange-500 px-4 py-1.5 font-semibold active:scale-95">
+            Menu
+          </button>
+        </div>
+      )}
+      {panel && stats && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center overflow-y-auto bg-slate-950/90 p-4 text-white">
+          <div className="w-full max-w-sm space-y-5 rounded-2xl bg-slate-900 p-6 text-center shadow-2xl">
+            <h2 className="text-xl font-semibold">
+              {panel === 'checkin' ? `Thank you for playing ${stats.rounds} rounds!` : 'Your game so far'}
+            </h2>
+            <StatsGrid stats={stats} dark />
+            {panel === 'checkin' && <p>Would you like to play some more?</p>}
+            <div className="space-y-3">
+              <button
+                onClick={keepDriving}
+                autoFocus
+                className="w-full rounded-lg bg-orange-500 px-6 py-3 text-lg font-semibold active:scale-95"
+              >
+                Keep driving
+              </button>
+              <button
+                onClick={imDone}
+                disabled={finishing}
+                className="w-full rounded-lg border border-slate-500 px-6 py-3 text-lg disabled:opacity-50"
+              >
+                {finishing ? 'Saving...' : "I'm done"}
+              </button>
+            </div>
+            {stats.delivered + stats.crashes < minRounds && (
+              <p className="text-sm text-slate-300">
+                If you can, please play at least {minRounds} rounds. More rounds give the class more data.
+              </p>
+            )}
           </div>
         </div>
       )}

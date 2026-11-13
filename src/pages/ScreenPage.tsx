@@ -11,7 +11,9 @@ interface ScreenInfo {
   title?: string;
   joined?: number;
   playing?: number;
+  enough_rounds?: number;
   done?: number;
+  min_rounds?: number;
 }
 
 const POLL_MS = 5000;
@@ -87,6 +89,7 @@ export default function ScreenPage() {
           <dl className="flex justify-center gap-10 lg:justify-start">
             <Count label="Joined" value={info.joined} />
             <Count label="Playing" value={info.playing} />
+            <Count label={`${info.min_rounds ?? 10}+ rounds`} value={info.enough_rounds} />
             <Count label="Done" value={info.done} />
           </dl>
         )}

@@ -2,11 +2,15 @@
   "seed": 4,
   "players": 12,
   "code": "SYNTH1",
-  "start": "2026-11-19T09:15:00+00:00",
-  "params": {
-    "training_seconds": 600,
-    "max_training_rounds": null,
+  "start": "2026-11-02T09:15:00+00:00",
+  "release": {
+    "cutoff": "2026-11-02T09:30:00+00:00",
     "test_rounds": 5,
+    "min_rounds": 10
+  },
+  "params": {
+    "test_rounds": 5,
+    "min_rounds": 10,
     "scene_count": 10,
     "ranges": {
       "trip_seconds": {
@@ -36,7 +40,7 @@
     }
   },
   "model": {
-    "intercept": -1.97,
+    "intercept": -2.16,
     "skill_sd": 0.7,
     "car": 1.4,
     "obstacle": 0.8,
@@ -55,7 +59,10 @@
     "timeout_logit": -3.2,
     "timeout_time_pressure": 2.0,
     "interrupt_share": 0.01,
-    "leave_early_share": 0.03,
-    "leave_in_test_share": 0.05
+    "patience_minutes": 6.0,
+    "patience_sd": 0.4,
+    "checkin_stop_share": 0.25,
+    "leave_early_share": 0.05,
+    "close_tab_share": 0.15
   }
 }

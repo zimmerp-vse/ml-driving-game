@@ -5,7 +5,8 @@ import { useParams } from 'react-router-dom';
 import { Message } from '../App';
 import { JoinForm } from '../components/JoinForm';
 import { GameFrame } from '../components/GameFrame';
-import { clearToken, loadToken, resume, saveToken, studyInfo, withRetry, type StudyInfo } from '../lib/api';
+import { clearToken, loadToken, resume, saveToken, studyInfo, withRetry, type PlayerStats, type StudyInfo } from '../lib/api';
+import { StatsGrid } from '../components/PlayerStats';
 
 type View =
   | { kind: 'loading' }
@@ -13,7 +14,7 @@ type View =
   | { kind: 'error' }
   | { kind: 'form'; info: StudyInfo }
   | { kind: 'play'; token: string; info: StudyInfo }
-  | { kind: 'done'; info: StudyInfo };
+  | { kind: 'done'; info: StudyInfo; stats?: PlayerStats };
 
 export const TEXT = {
   notOpen: 'This study is not open.',
@@ -37,7 +38,7 @@ export default function StudentPage() {
           const pos = await withRetry(() => resume(token));
           if (cancelled) return;
           if (pos.ok) {
-            if (pos.done) return setView({ kind: 'done', info });
+            if (pos.done) return setView({ kind: 'done', info, stats: pos.stats });
             if (pos.study_status !== 'open') return setView({ kind: 'not_open' });
             return setView({ kind: 'play', token, info });
           }
@@ -63,6 +64,11 @@ export default function StudentPage() {
     case 'done':
       return (
         <Message text={TEXT.done}>
+          {view.stats && (
+            <div className="mt-6">
+              <StatsGrid stats={view.stats} />
+            </div>
+          )}
           {view.info.status === 'open' && view.info.allow_rejoin && (
             <button
               onClick={() => {
@@ -92,7 +98,7 @@ export default function StudentPage() {
       return (
         <GameFrame
           token={view.token}
-          onDone={() => setView({ kind: 'done', info: view.info })}
+          onDone={(pos) => setView({ kind: 'done', info: view.info, stats: pos?.stats })}
           onNotOpen={() => setView({ kind: 'not_open' })}
           onError={() => setView({ kind: 'error' })}
         />

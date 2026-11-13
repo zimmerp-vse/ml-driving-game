@@ -81,7 +81,7 @@ export function JoinForm({
             autoComplete="off"
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-lg"
           />
-          <p className="mt-1 text-sm text-slate-500">2 to 20 characters. Do not use your real name.</p>
+          <p className="mt-1 text-sm text-slate-500">2 to 20 characters. Not your real name: your classmates will see it.</p>
         </div>
 
         <fieldset>
