@@ -77,7 +77,7 @@ def check_rows(name: str, rows: list[dict], with_accident: bool) -> None:
             fail(f"{where}: sex {r['sex']!r}")
         if r["age"] and not (r["age"].isdigit() and 15 <= int(r["age"]) <= 99):
             fail(f"{where}: age {r['age']!r}")
-        if r["device"] not in ("touch", "mouse"):
+        if r["device"] not in ("touch", "keyboard"):
             fail(f"{where}: device {r['device']!r}")
         if r["country"] and not re.match(r"^[A-Z]{2}$", r["country"]):
             fail(f"{where}: country {r['country']!r}")

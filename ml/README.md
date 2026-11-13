@@ -57,3 +57,12 @@ or always crashed, a logistic fit of accident on the conditions, and the spread 
 probabilities. Exit code 1 if a check failed.
 
 After the dry run: run it on the downloaded files with `--raw`.
+
+## `notebooks/`: the students' notebook
+
+`notebooks/driving_task.ipynb` (built by `notebooks/build_student_notebook.py`): the task, the
+data and the release rule, a template that writes and checks `predictions.csv` (the same checks as
+the team page), how to submit, and an open "explain and share" question. No modelling help, on
+purpose. Runs in Colab (file upload) or locally next to the two files.
+
+The teacher's notebook and the solution are **not** in this public repo.
