@@ -23,7 +23,30 @@ its own schema `mlgame` and functions named `mlg_*`; Charming Ride is not change
 
    Expected: "Success. 1 row affected" (or "INSERT 0 1").
 
-5. Optional check that students cannot read the tables (should fail with
+5. **More admins** (any time later). Each person needs an account in this Supabase
+   project first: **Authentication**, **Users**, **Add user**, with an email and a
+   password, and tick the box that confirms the email. Tell them the password; they
+   can change it afterwards. Then, in the SQL Editor:
+
+   ```sql
+   insert into mlgame.admins (user_id)
+   select id from auth.users where lower(email) = 'colleague@vse.cz'
+   on conflict do nothing;
+   ```
+
+   "0 rows" means the account does not exist yet, so the email is wrong or the user
+   was not created. To take the rights away again:
+
+   ```sql
+   delete from mlgame.admins
+   where user_id = (select id from auth.users where lower(email) = 'colleague@vse.cz');
+   ```
+
+   An admin can do everything: create, open, close and delete studies, see every
+   player's rounds, release data and make reports. Somebody who signs in without
+   being an admin is told so by name and sees nothing else.
+
+6. Optional check that students cannot read the tables (should fail with
    "permission denied for schema mlgame"):
 
    ```sql
