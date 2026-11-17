@@ -94,6 +94,26 @@ export function buildFiles(x: ExportResult): CsvFile[] {
   ];
 }
 
+/**
+ * Every team's last accepted predictions for a release, as one file, so the teacher can check
+ * the submissions outside the app (see the teacher's notebook). Teacher only: it carries the
+ * teams' p for the test rounds, and it is never offered to students.
+ */
+export function buildSubmissionsFile(
+  code: string,
+  lastAccepted: { team: string; uploaded_at: string; rows: { round_id: string; p: number }[] }[],
+): CsvFile {
+  const rows = lastAccepted
+    .flatMap((t) => (t.rows ?? []).map((r) => ({ team: t.team, uploaded_at: t.uploaded_at, round_id: r.round_id, p: r.p })))
+    .sort((a, b) => a.team.toLowerCase().localeCompare(b.team.toLowerCase()) || a.round_id.localeCompare(b.round_id));
+  return {
+    name: `submissions_${code}.csv`,
+    content: toCsv(['team', 'uploaded_at', 'round_id', 'p'], rows),
+    rows: rows.length,
+    forStudents: false,
+  };
+}
+
 export function download(file: CsvFile) {
   const blob = new Blob([file.content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);

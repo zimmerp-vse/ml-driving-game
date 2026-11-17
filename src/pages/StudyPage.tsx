@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { AdminGate, Shell, SignOut } from './AdminPage';
-import { buildFiles, download, type ExportCounts, type ExportResult, type Release } from '../lib/exports';
+import { buildFiles, buildSubmissionsFile, download, type ExportCounts, type ExportResult, type Release } from '../lib/exports';
 import { closeStudy, downloadReport, makeReport, reportFileName, showReport } from '../lib/reportFlow';
 
 interface Study {
@@ -619,6 +619,19 @@ function Reports({ id, code, version }: { id: string; code: string; version: num
     setBusy(false);
   }
 
+  // Teacher only: every team's last accepted predictions for the latest release, for the checks
+  // in the teacher's notebook. Never give this file to students.
+  async function downloadSubmissions() {
+    setBusy(true);
+    setError(null);
+    const { data, error } = await supabase.rpc('mlg_admin_report_data', { p_id: id });
+    setBusy(false);
+    if (error) return setError(error.message);
+    const file = buildSubmissionsFile(code, (data as { last_accepted?: [] }).last_accepted ?? []);
+    if (file.rows === 0) return setError('No accepted submissions for the latest release yet.');
+    download(file);
+  }
+
   async function fetchHtml(r: SavedReport): Promise<string | null> {
     const { data, error } = await supabase.rpc('mlg_admin_get_report', { p_report_id: r.id });
     if (error) {
@@ -632,9 +645,15 @@ function Reports({ id, code, version }: { id: string; code: string; version: num
     <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Reports</h2>
-        <button onClick={makeRunning} disabled={busy} className="rounded bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-50">
-          {busy ? 'Making...' : 'Make running report'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={downloadSubmissions} disabled={busy}
+            className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-50">
+            Submissions (all teams) ↓
+          </button>
+          <button onClick={makeRunning} disabled={busy} className="rounded bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-50">
+            {busy ? 'Making...' : 'Make running report'}
+          </button>
+        </div>
       </div>
       <p className="text-sm text-slate-500">
         Participation, accidents and the leaderboard of the last accepted files so far. Closing the study makes the final report.

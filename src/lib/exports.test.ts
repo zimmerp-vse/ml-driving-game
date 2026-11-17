@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFiles, formatCell, formatNumber, toCsv, type ExportResult } from './exports';
+import { buildFiles, buildSubmissionsFile, formatCell, formatNumber, toCsv, type ExportResult } from './exports';
 
 describe('formatting', () => {
   it('numbers use a decimal point, no exponent, at most 6 decimals', () => {
@@ -55,5 +55,28 @@ describe('buildFiles', () => {
     expect(labels.content).toBe('round_id,accident\nR4,1\n');
     expect([train.forStudents, test.forStudents, labels.forStudents, raw.forStudents]).toEqual([true, true, false, false]);
     expect(raw.name).toBe('game_raw_ABC234.csv');
+  });
+});
+
+describe('buildSubmissionsFile', () => {
+  const teams = [
+    { team: 'Bravo', uploaded_at: '2026-11-19T10:05:00Z', rows: [{ round_id: 'R2', p: 0.5 }, { round_id: 'R1', p: 0.25 }] },
+    { team: 'alpha', uploaded_at: '2026-11-19T10:00:00Z', rows: [{ round_id: 'R1', p: 0.1 }] },
+  ];
+
+  it('is one teacher-only file, sorted by team then round, with the team on every row', () => {
+    const f = buildSubmissionsFile('ABC234', teams);
+    expect(f.name).toBe('submissions_ABC234.csv');
+    expect(f.forStudents).toBe(false);
+    expect(f.rows).toBe(3);
+    expect(f.content).toBe(
+      'team,uploaded_at,round_id,p\n' +
+      'alpha,2026-11-19T10:00:00Z,R1,0.1\n' +
+      'Bravo,2026-11-19T10:05:00Z,R1,0.25\n' +
+      'Bravo,2026-11-19T10:05:00Z,R2,0.5\n');
+  });
+
+  it('a team with no stored rows is skipped', () => {
+    expect(buildSubmissionsFile('ABC234', [{ team: 'x', uploaded_at: 'y', rows: undefined as never }]).rows).toBe(0);
   });
 });
