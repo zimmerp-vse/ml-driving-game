@@ -11,6 +11,7 @@ belong to a study. First use: ML2, block 6, 19.11.2026.
 * Data formats (the ML2 notebooks and scorer depend on it; changes are agreed and
   versioned): [`docs/data_contract.md`](docs/data_contract.md)
 * One-time setup of Supabase and Vercel: [`docs/SETUP.md`](docs/SETUP.md)
+* Running a class, step by step (teacher and TAs): [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
 
 ## Status
 
