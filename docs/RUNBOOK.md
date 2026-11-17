@@ -33,6 +33,9 @@ Shape of a 90 minute block. Adjust the middle part to the time you have.
 1. `/admin`, open the study you made, click **Open** if it is not open yet.
 2. Projector: the **QR screen** link on the study page, full screen (F11, or Ctrl+Cmd+F on a Mac).
 3. Keep the **study page** open on your own laptop. It refreshes every 5 seconds.
+4. Remember the one thing you must say out loud: **the horn**. See the next section. Nothing in
+   the app tells laptop players it exists, so if you forget, only the phone users will use it and
+   the device column in the data will carry the difference.
 
 ## C. Students join and play (about 25 minutes)
 
