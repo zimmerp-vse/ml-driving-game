@@ -152,6 +152,14 @@ function StudyView({ email }: { email: string }) {
 
       <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="text-lg font-semibold">Students</h2>
+        {study.status !== 'open' && (
+          <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">
+            This study is {study.status === 'closed' ? 'closed' : 'not open yet'}, so neither switch below has any
+            effect: students see "Submissions are {study.status === 'closed' ? 'closed' : 'not open yet'}" whatever
+            you tick here. Click <b>Open</b> at the top first. Closing a study also clears <b>Submissions open</b>,
+            so tick it again afterwards.
+          </p>
+        )}
         <Switch
           checked={study.data_released}
           onChange={(v) => setFlag('data_released', v)}

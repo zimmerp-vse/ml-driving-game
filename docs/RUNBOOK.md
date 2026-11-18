@@ -142,6 +142,10 @@ nothing is lost. A different browser or a private window starts a new player.
 **"Can I play again after I'm done?"** Not in a real class. (That is what **Replay** is for in test
 studies.)
 
+**The team page says "Submissions are closed" although you ticked the switch.** The study itself
+is closed, which is a different thing: click **Open** on the study page first, then tick
+**Submissions open** again, because closing a study clears it.
+
 **"Our file was rejected."** The page says why. The usual causes are a decimal comma, a missing
 header `round_id,p`, missing rounds, or predicting every row as 0 or 1.
 
