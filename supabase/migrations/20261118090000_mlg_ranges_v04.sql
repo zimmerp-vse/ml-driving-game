@@ -20,10 +20,12 @@
 --   v03 as played            0.42           0.28 to 0.51          2.7 %
 --   v04 (this file)          0.36           0.14 to 0.59          9.4 %
 --
--- The time limit narrows to 18 to 28 s. At 13 s a good driver timed out one round in three, and
--- those rounds are dropped from the class files; at 33 s a player could crawl and still deliver,
--- which is dull and teaches the wrong habit. A delivered round takes about 13 s, so 18 s is
--- brisk-but-fair and 28 s is comfortable without allowing a crawl.
+-- The time limit narrows to 17 to 24 s. Across both studies on the finished game, 41 deliveries
+-- by 4 players took a median of 13.2 s and never more than 14.5 s, and the slowest delivery ever
+-- recorded on a phone (older build) was 16.4 s. So 17 s fails nobody who drives, while a crawl at
+-- half pace (about 26 s) now fails at every limit in the range. This is also the first setting in
+-- which the limit binds at all: until now it had no measurable effect on crashes because a
+-- delivered round used only about 57 % of it.
 --
 -- NEW studies only; existing studies keep their stored parameters.
 -- Safe to run once in the SQL editor of the shared project; touches only mlgame objects.
@@ -35,7 +37,7 @@ language sql immutable set search_path = '' as $$
     'min_rounds', 10,
     'scene_count', 10,
     'ranges', jsonb_build_object(
-      'trip_seconds',    jsonb_build_object('min', 18,     'max', 28,    'scale', 'linear'),
+      'trip_seconds',    jsonb_build_object('min', 17,     'max', 24,    'scale', 'linear'),
       'car_rate',        jsonb_build_object('min', 0.005,  'max', 0.19,  'scale', 'log'),
       'obstacle_rate',   jsonb_build_object('min', 0.0009, 'max', 0.032, 'scale', 'log'),
       'pedestrian_rate', jsonb_build_object('min', 0.0006, 'max', 0.020, 'scale', 'log')

@@ -39,7 +39,7 @@ Simulated against the dry run: accident share 0.36 (was 0.42), risk of a round 0
 
 | condition (game name) | column in the files | range v04 (default) | range v03 | range v02 | range v01 |
 |---|---|---|---|---|---|
-| `tripDurationMs` | `trip_seconds` | 18 to 28 s | 13 to 33 s | 13 to 33 s | 20 to 50 s |
+| `tripDurationMs` | `trip_seconds` | 17 to 24 s | 13 to 33 s | 13 to 33 s | 20 to 50 s |
 | `carSpawnRate` | `car_rate` | **0.005 to 0.19, log** | 0.01 to 0.09 | 0.015 to 0.135 | 0.01 to 0.09 |
 | `obstacleSpawnRate` | `obstacle_rate` | **0.0009 to 0.032, log** | 0.002 to 0.015 | 0.003 to 0.0225 | 0.002 to 0.015 |
 | `pedestrianSpawnRate` | `pedestrian_rate` | **0.0006 to 0.020, log** | 0.001 to 0.010 | 0.0015 to 0.015 | 0.001 to 0.010 |
@@ -131,7 +131,7 @@ Writes the four files of sections 3 and 4 for an invented class, from the same p
 
 ## Versions
 
-* v08, 18.11.2026 (Pavel): section 2, ranges v04 from the dry run. The three spawn rates are drawn on a **log scale** over a band that reaches lower and much higher than v03 at about the same average: this keeps the accident share near 0.36 while raising what the conditions explain from about 3 % to about 9 %. The time limit narrows to 18 to 28 s, because at 13 s a good driver timed out one round in three and at 33 s a player could crawl and still deliver. No change to columns or formats; the generator's defaults follow.
+* v08, 18.11.2026 (Pavel): section 2, ranges v04 from the dry run. The three spawn rates are drawn on a **log scale** over a band that reaches lower and much higher than v03 at about the same average: this keeps the accident share near 0.36 while raising what the conditions explain from about 3 % to about 9 %. The time limit narrows to 17 to 24 s: on the finished game a delivery takes 13.2 s and never took more than 14.5 s, so 17 s fails nobody who drives, while a crawl at half pace (about 26 s) now fails at every limit in the range. No change to columns or formats; the generator's defaults follow.
 * v07, 13.11.2026 (Pavel): free play: no training time; players stop with "I'm done" (`finished_at` in the raw file). The split is made at release (section 4.4): the last `test_rounds` counted rounds of players with at least `min_rounds` (defaults 5 and 10) are the test, everything else counted is training; rounds up to a cutoff; numbered releases, the latest goes to students and teams. Raw file: `phase` and `test_index` removed, `finished_at` added. Device `mouse` renamed `keyboard`. Section 7: the generator lives in the app repo. Student file columns unchanged.
 * v01, 3.11.2026: first draft.
 * v02, 3.11.2026 (Pavel): repo `ml-driving-game`; both devices allowed, device a feature; `country` added (from the IP at join, IP not stored; no-variance feature as part of the lesson); no score ever shown to teams; leaderboard through admin reports, running and final.
