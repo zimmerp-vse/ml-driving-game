@@ -46,8 +46,8 @@ describe('leaderboard', () => {
     const base = 2 / 6;
     expect(by['Base rate (one p for everybody)'].logLoss).toBeCloseTo(-(2 * Math.log(base) + 2 * Math.log(1 - base)) / 4, 12);
     // Own rate: anna (2+1)/(3+2) = 0.6, bob (0+1)/(3+2) = 0.2.
-    expect(by["Player's own rate"].logLoss).toBeCloseTo(-(2 * Math.log(0.6) + 2 * Math.log(0.8)) / 4, 12);
-    expect(lb.map((e) => e.name)).toEqual(['Perfect-ish', "Player's own rate", 'Base rate (one p for everybody)', 'Late file']);
+    expect(by["Each player's own individual rate"].logLoss).toBeCloseTo(-(2 * Math.log(0.6) + 2 * Math.log(0.8)) / 4, 12);
+    expect(lb.map((e) => e.name)).toEqual(['Perfect-ish', "Each player's own individual rate", 'Base rate (one p for everybody)', 'Late file']);
     expect(by['Late file']).toMatchObject({ logLoss: null, note: expect.stringMatching(/misses 3 test rounds/) });
   });
 

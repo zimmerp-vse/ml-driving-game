@@ -102,7 +102,7 @@ say: "last round, then press Menu and I'm done."
 1. Study page, **Reports**, **Make running report**, then **Show**. Full screen on the projector.
 2. Walk through it: participation, the learning curve, accidents by device, the uploads, and the
    leaderboard with its intervals. The two reference rows matter: beating "one p for everybody" is
-   easy, beating "the player's own rate" is the real test.
+   easy, beating "each player's own individual rate" is the real test.
 3. When the last upload is in: **Close** the study. That closes submissions and makes the
    **final report**.
 4. **Download** the final report. It stays readable after the study is deleted.

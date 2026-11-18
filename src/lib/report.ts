@@ -88,7 +88,7 @@ export function leaderboard(d: ReportData, seed = 20261119, rounds = BOOTSTRAP_R
       p: () => baseRate,
     },
     {
-      entry: { name: "Player's own rate", kind: 'reference', logLoss: null, low: null, high: null },
+      entry: { name: "Each player's own individual rate", kind: 'reference', logLoss: null, low: null, high: null },
       p: (r) => ownRate(r.player),
     },
   ];
