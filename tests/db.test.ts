@@ -107,8 +107,8 @@ describe('schedule and phases', () => {
     for (const c of s.rounds) {
       expect(c.tripDurationMs).toBeGreaterThanOrEqual(13000);
       expect(c.tripDurationMs).toBeLessThanOrEqual(33000);
-      expect(c.carSpawnRate).toBeGreaterThanOrEqual(0.01);
-      expect(c.carSpawnRate).toBeLessThanOrEqual(0.09);
+      expect(c.carSpawnRate).toBeGreaterThanOrEqual(0.008);
+      expect(c.carSpawnRate).toBeLessThanOrEqual(0.072);
       expect(c.sceneIndex).toBeGreaterThanOrEqual(0);
       expect(c.sceneIndex).toBeLessThanOrEqual(9);
     }
@@ -221,15 +221,15 @@ describe('schedule and phases', () => {
     await db.query(`delete from mlgame.respondents where nick_lower in ('alice_2', 'alice_3', 'twenty characters ok', 'twenty characters_2')`);
   });
 
-  it('new studies get the defaults of contract v07 (ranges v03, test 5 of at least 10 rounds)', async () => {
+  it('new studies get the defaults of contract v08 (ranges v04, test 5 of at least 10 rounds)', async () => {
     const st = await call(db, 'authenticated', `public.mlg_admin_create_study('defaults', 'c')`, [], ADMIN);
     expect(st.params.fixed).toEqual({ malfunctionProbability: 0, deliveryDistance: 200 });
     expect(st.params).toMatchObject({ test_rounds: 5, min_rounds: 10 });
     expect(st.params.training_seconds).toBeUndefined();
     expect(st.params.ranges.trip_seconds).toEqual({ min: 13, max: 33, scale: 'linear' });
-    expect(st.params.ranges.car_rate).toEqual({ min: 0.01, max: 0.09, scale: 'linear' });
-    expect(st.params.ranges.obstacle_rate).toEqual({ min: 0.002, max: 0.015, scale: 'linear' });
-    expect(st.params.ranges.pedestrian_rate).toEqual({ min: 0.001, max: 0.010, scale: 'linear' });
+    expect(st.params.ranges.car_rate).toEqual({ min: 0.008, max: 0.072, scale: 'linear' });
+    expect(st.params.ranges.obstacle_rate).toEqual({ min: 0.0016, max: 0.012, scale: 'linear' });
+    expect(st.params.ranges.pedestrian_rate).toEqual({ min: 0.0008, max: 0.008, scale: 'linear' });
     await call(db, 'authenticated', `public.mlg_admin_set_status($1, 'open')`, [st.id], ADMIN);
     const r = await call(db, 'service_role', `public.mlg_join_study($1, 'shorty', null, null, 'keyboard', 1, 1, null)`, [st.code]);
     const s = await call(db, 'anon', 'public.mlg_start_schedule($1, 50)', [r.token]);

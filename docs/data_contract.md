@@ -1,4 +1,4 @@
-# Driving game: data contract, v07 (13.11.2026)
+# Driving game: data contract, v08 (18.11.2026)
 
 *Master copy (since 4.11.2026). The ML2 project keeps a pointer. Changes to it affect the ML2 notebooks and scorer, so they are agreed with Pavel and noted under Versions.*
 
@@ -28,14 +28,18 @@ The contract between the app **`ml-driving-game`** (see `app_spec.md`; usable in
 | `fixed` | `malfunctionProbability: 0`, `deliveryDistance: 200` | conditions sent to the game unchanged for every round; `deliveryDistance` is the road length of one delivery (the game's own default is 300) |
 | `seed` | random | seed of the condition draws, stored, so the draws can be reproduced |
 
-Varied conditions, drawn **independently for every round**, uniform on the given scale. v01 were Charming Ride's T3 ranges. v02 made rounds about a third shorter: the road a third shorter (`deliveryDistance` 200), the time limit a third shorter, and the spawn rates 1.5 times higher. That proved too hard (more crashes than deliveries), so v03 keeps the shorter road and time limit but returns to the v01 spawn rates: hazards are as far apart as in the original game, and a round meets about a third fewer of them. The dry run decides the final ones (aim: an accident share between about 0.3 and 0.5).
+Varied conditions, drawn **independently for every round**, uniform on the given scale. v01 were Charming Ride's T3 ranges. v02 made rounds about a third shorter: the road a third shorter (`deliveryDistance` 200), the time limit a third shorter, and the spawn rates 1.5 times higher. That proved too hard (more crashes than deliveries), so v03 keeps the shorter road and time limit but returns to the v01 spawn rates: hazards are as far apart as in the original game, and a round meets about a third fewer of them. The dry run of 13 to 17.11.2026 measured 0.53 on the finished game, so v04 drops all three spawn
+rates to 80 % of v03. **The spawner saturates**: it refuses to place a hazard within 10 segments of
+another, so a trip holds about 4.3 hazards at v03 and about 3.8 at v04, and the rate in the files
+is only a rough proxy for how many hazards the player actually met. The time limit stays: a
+delivered round uses a median 57 % of it, so it rarely binds.
 
-| condition (game name) | column in the files | range v03 (default) | range v02 | range v01 |
-|---|---|---|---|---|
-| `tripDurationMs` | `trip_seconds` | 13 to 33 s | 13 to 33 s | 20 to 50 s |
-| `carSpawnRate` | `car_rate` | 0.01 to 0.09 | 0.015 to 0.135 | 0.01 to 0.09 |
-| `obstacleSpawnRate` | `obstacle_rate` | 0.002 to 0.015 | 0.003 to 0.0225 | 0.002 to 0.015 |
-| `pedestrianSpawnRate` | `pedestrian_rate` | 0.001 to 0.010 | 0.0015 to 0.015 | 0.001 to 0.010 |
+| condition (game name) | column in the files | range v04 (default) | range v03 | range v02 | range v01 |
+|---|---|---|---|---|---|
+| `tripDurationMs` | `trip_seconds` | 13 to 33 s | 13 to 33 s | 13 to 33 s | 20 to 50 s |
+| `carSpawnRate` | `car_rate` | 0.008 to 0.072 | 0.01 to 0.09 | 0.015 to 0.135 | 0.01 to 0.09 |
+| `obstacleSpawnRate` | `obstacle_rate` | 0.0016 to 0.012 | 0.002 to 0.015 | 0.003 to 0.0225 | 0.002 to 0.015 |
+| `pedestrianSpawnRate` | `pedestrian_rate` | 0.0008 to 0.008 | 0.001 to 0.010 | 0.0015 to 0.015 | 0.001 to 0.010 |
 | scene index | `scene` | one of the game's 10 scenes, uniform (today the game rotates them by round number, which ties the scene to the attempt; the schedule overrides that) | same | same |
 
 ## 3. What the app logs per round (raw, admin only)
@@ -120,6 +124,7 @@ Writes the four files of sections 3 and 4 for an invented class, from the same p
 
 ## Versions
 
+* v08, 18.11.2026 (Pavel): section 2, ranges v04, all three spawn rates at 80 % of v03, from the dry run (accident share 0.53 on the finished game against a target of 0.3 to 0.5; two estimates for v04 are 0.43 and 0.48). Time limit unchanged. No change to columns or formats; the generator's defaults follow.
 * v07, 13.11.2026 (Pavel): free play: no training time; players stop with "I'm done" (`finished_at` in the raw file). The split is made at release (section 4.4): the last `test_rounds` counted rounds of players with at least `min_rounds` (defaults 5 and 10) are the test, everything else counted is training; rounds up to a cutoff; numbered releases, the latest goes to students and teams. Raw file: `phase` and `test_index` removed, `finished_at` added. Device `mouse` renamed `keyboard`. Section 7: the generator lives in the app repo. Student file columns unchanged.
 * v01, 3.11.2026: first draft.
 * v02, 3.11.2026 (Pavel): repo `ml-driving-game`; both devices allowed, device a feature; `country` added (from the IP at join, IP not stored; no-variance feature as part of the lesson); no score ever shown to teams; leaderboard through admin reports, running and final.
