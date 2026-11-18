@@ -50,10 +50,10 @@ DEFAULT_PARAMS = {
     "min_rounds": 10,
     "scene_count": 10,
     "ranges": {
-        "trip_seconds": {"min": 13, "max": 33, "scale": "linear"},
-        "car_rate": {"min": 0.008, "max": 0.072, "scale": "linear"},
-        "obstacle_rate": {"min": 0.0016, "max": 0.012, "scale": "linear"},
-        "pedestrian_rate": {"min": 0.0008, "max": 0.008, "scale": "linear"},
+        "trip_seconds": {"min": 18, "max": 28, "scale": "linear"},
+        "car_rate": {"min": 0.005, "max": 0.19, "scale": "log"},
+        "obstacle_rate": {"min": 0.0009, "max": 0.032, "scale": "log"},
+        "pedestrian_rate": {"min": 0.0006, "max": 0.020, "scale": "log"},
     },
     "fixed": {"malfunctionProbability": 0, "deliveryDistance": 200},
 }
