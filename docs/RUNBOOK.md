@@ -23,8 +23,10 @@ Shape of a 90 minute block. Adjust the middle part to the time you have.
    leave the consent line as it is, **Create study**. Leave **Replay** off for a real class.
 3. **Test it yourself.** Click **Open**, open the join link on your phone, join with a throwaway
    nick, play two rounds, press **Menu** then **I'm done**. Check that your rounds appear in
-   **Live progress**. Then **delete that study** and create a fresh one for the class, so the
-   class data has no test players in it.
+   **Live progress**. Then create a **separate study for the class**: each study keeps its own
+   players, rounds and files, so nothing done in a test study can reach the class data. Close or
+   delete the test study all the same, so that nobody scans yesterday's QR code and you never
+   have two similar studies open at once.
 4. **Check the room.** The projector shows `/screen/<CODE>`, and the QR code has to be readable
    from the back row. Wi-fi for 30 phones.
 
