@@ -12,6 +12,7 @@ belong to a study. First use: ML2, block 6, 19.11.2026.
   versioned): [`docs/data_contract.md`](docs/data_contract.md)
 * One-time setup of Supabase and Vercel: [`docs/SETUP.md`](docs/SETUP.md)
 * Running a class, step by step (teacher and TAs): [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
+* The task as given to students: [`docs/student_brief.md`](docs/student_brief.md)
 
 ## Status
 

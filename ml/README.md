@@ -58,11 +58,11 @@ probabilities. Exit code 1 if a check failed.
 
 After the dry run: run it on the downloaded files with `--raw`.
 
-## `notebooks/`: the students' notebook
+## The task given to students
 
-`notebooks/driving_task.ipynb` (built by `notebooks/build_student_notebook.py`): the task, the
-data and the release rule, a template that writes and checks `predictions.csv` (the same checks as
-the team page), how to submit, and an open "explain and share" question. No modelling help, on
-purpose. Runs in Colab (file upload) or locally next to the two files.
+Not a notebook: a one-page brief, [`docs/student_brief.md`](../docs/student_brief.md). It gives
+the task, the data, the release rule, the scoring, a snippet that writes and checks
+`predictions.csv`, and two optional questions (who crashes more, and what the `player` column can
+and cannot answer). No modelling help, on purpose.
 
 The teacher's notebook and the solution are **not** in this public repo.
