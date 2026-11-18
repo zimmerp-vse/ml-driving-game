@@ -381,16 +381,17 @@ function Releases({ id, defaults, version, onReleased }: {
     load();
   }, [load, version]);
 
-  async function downloadFiles(release: number | null, which: 'all' | 'raw') {
-    setBusy(`${release}-${which}`);
+  // One file per click: a browser only lets one download through per gesture, so a loop over
+  // three files silently drops two of them (Safari keeps the last).
+  async function downloadFile(release: number | null, pick: (name: string) => boolean, key: string) {
+    setBusy(key);
     setError(null);
     const { data, error } = await supabase.rpc('mlg_admin_export', { p_id: id, p_release: release });
     setBusy(null);
     if (error) return setError(error.message);
-    const files = buildFiles(data as ExportResult);
-    for (const f of files) {
-      if (which === 'raw' ? f.name.startsWith('game_raw_') : !f.name.startsWith('game_raw_')) download(f);
-    }
+    const file = buildFiles(data as ExportResult).find((f) => pick(f.name));
+    if (!file) return setError('That file is empty for this release.');
+    download(file);
   }
 
   return (
@@ -398,7 +399,7 @@ function Releases({ id, defaults, version, onReleased }: {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Data releases</h2>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => downloadFiles(null, 'raw')} disabled={!!busy}
+          <button onClick={() => downloadFile(null, (n) => n.startsWith('game_raw_'), 'raw')} disabled={!!busy}
             className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-50">
             Raw file (all rounds) ↓
           </button>
@@ -444,11 +445,15 @@ function Releases({ id, defaults, version, onReleased }: {
                 <td className="text-slate-600">{new Date(r.cutoff).toLocaleTimeString()}</td>
                 <td className="text-slate-600">last {r.test_rounds} of {r.min_rounds}+ · {r.counts.players_in_test} players</td>
                 <td className="tabular-nums text-slate-600">{r.counts.train_rows} train, {r.counts.test_rows} test</td>
-                <td className="text-right">
-                  <button onClick={() => downloadFiles(r.number, 'all')} disabled={!!busy}
-                    className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50 disabled:opacity-50">
-                    {busy === `${r.number}-all` ? 'Preparing...' : 'Files ↓'}
-                  </button>
+                <td className="space-x-1 text-right">
+                  {([['train', 'game_train.csv'], ['test', 'game_test.csv'], ['labels', 'game_labels.csv']] as const).map(
+                    ([label, name]) => (
+                      <button key={name} onClick={() => downloadFile(r.number, (n) => n === name, `${r.number}-${label}`)}
+                        disabled={!!busy} title={name}
+                        className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50 disabled:opacity-50">
+                        {busy === `${r.number}-${label}` ? '...' : `${label} ↓`}
+                      </button>
+                    ))}
                 </td>
               </tr>
             ))}
@@ -457,7 +462,8 @@ function Releases({ id, defaults, version, onReleased }: {
       )}
       {list.length > 0 && (
         <p className="text-xs text-slate-500">
-          Files ↓ downloads game_train.csv, game_test.csv and game_labels.csv (teacher only, never to students) of that release.
+One file per click, because a browser only allows one download per click. game_labels.csv is for
+          you only and never goes to students; the other two are what the teams get.
         </p>
       )}
     </section>
