@@ -12,7 +12,8 @@ Download two files from the team page: `game_train.csv` and `game_test.csv`.
 and 1 for each round. How you do it is up to you, including any features you build from the
 columns you were given.
 
-Upload a CSV file with the header `round_id,p` and one row per test round.
+You upload a **new CSV file with exactly two columns**. It is not `game_test.csv` with a column
+added, and it is not your notebook.
 
 ## How you are scored
 
@@ -52,6 +53,24 @@ rounds are in `game_train.csv`. Players with fewer rounds are only in `game_trai
 predicting the **later** rounds of players you already know from the training file.
 
 ## The file you upload
+
+Two columns, `round_id` and `p`, and one row for every round in `game_test.csv`:
+
+```
+round_id,p
+5E3GFHKB,0.42
+T6W6Y6CC,0.17
+8NJ4NHXU,0.63
+```
+
+`round_id` is copied straight from `game_test.csv`; `p` is your predicted probability for that
+round. Nothing else: no index column, no extra columns from the test file. The order of the rows
+does not matter, because the rounds are matched by `round_id`.
+
+**The code below writes that file for you.** Paste it at the end of your notebook, put your
+predictions into `p`, and run it. It checks the usual mistakes first and then writes
+`predictions.csv` into your working folder, which in Colab is the file browser on the left. That
+file is the one you upload.
 
 ```python
 import pandas as pd, numpy as np
