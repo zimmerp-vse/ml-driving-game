@@ -11,9 +11,9 @@ export const TEST_COLUMNS = TRAIN_COLUMNS.filter((c) => c !== 'accident');
 export const LABEL_COLUMNS = ['round_id', 'accident'] as const;
 // Contract section 3, in its order.
 export const RAW_COLUMNS = [
-  'study_code', 'player', 'sex', 'age', 'device', 'country', 'viewport_width', 'viewport_height',
+  'study_code', 'player', 'sex', 'age', 'device', 'os', 'browser', 'country', 'viewport_width', 'viewport_height',
   'joined_at', 'finished_at', 'attempt', 'counted', 'round_started_at', 'round_ended_at',
-  'trip_seconds', 'car_rate', 'obstacle_rate', 'pedestrian_rate', 'scene', 'outcome', 'time_ms',
+  'trip_seconds', 'car_rate', 'obstacle_rate', 'pedestrian_rate', 'scene', 'outcome', 'time_ms', 'fps', 'quality',
   'money_earned', 'money_lost', 'money_balance', 'applied',
 ] as const;
 
@@ -83,6 +83,25 @@ export interface CsvFile {
   forStudents: boolean;
 }
 
+/**
+ * The raw rows with `os`, `browser`, `fps` and `quality` as columns of their own. The app stores
+ * them inside `applied.client` (sent with each round); rounds recorded before that have none.
+ */
+export function withClientColumns(raw: Row[]): Row[] {
+  return raw.map((r) => {
+    let applied: unknown = r.applied;
+    if (typeof applied === 'string') {
+      try {
+        applied = JSON.parse(applied);
+      } catch {
+        applied = null;
+      }
+    }
+    const c = ((applied as { client?: Record<string, unknown> } | null)?.client ?? {}) as Record<string, unknown>;
+    return { ...r, os: c.os ?? null, browser: c.browser ?? null, fps: c.fps ?? null, quality: c.quality ?? null };
+  });
+}
+
 export function buildFiles(x: ExportResult): CsvFile[] {
   const train = x.files.filter((r) => r.file === 'train');
   const test = x.files.filter((r) => r.file === 'test');
@@ -90,7 +109,7 @@ export function buildFiles(x: ExportResult): CsvFile[] {
     { name: 'game_train.csv', content: toCsv(TRAIN_COLUMNS, train), rows: train.length, forStudents: true },
     { name: 'game_test.csv', content: toCsv(TEST_COLUMNS, test), rows: test.length, forStudents: true },
     { name: 'game_labels.csv', content: toCsv(LABEL_COLUMNS, test), rows: test.length, forStudents: false },
-    { name: `game_raw_${x.study.code}.csv`, content: toCsv(RAW_COLUMNS, x.raw), rows: x.raw.length, forStudents: false },
+    { name: `game_raw_${x.study.code}.csv`, content: toCsv(RAW_COLUMNS, withClientColumns(x.raw)), rows: x.raw.length, forStudents: false },
   ];
 }
 

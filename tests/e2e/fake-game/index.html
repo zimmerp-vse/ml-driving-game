@@ -41,7 +41,8 @@
   window.endRound = (outcome, timeMs = 12000) => {
     const a = conditions();
     send('ROUND_END', { sessionId: init.session.sessionId, round, outcome, timeMs, scene: 'Scene ' + a.sceneIndex,
-                        moneyEarned: 0, moneyLost: 0, moneyBalance: 1000, applied: a });
+                        moneyEarned: 0, moneyLost: 0, moneyBalance: 1000, applied: a,
+                        perf: { fps: 58.5, quality: 0 } });
   };
   window.playRound = (outcome) => { window.startRound(); window.endRound(outcome); return round; };
   window.isReady = () => init !== null;

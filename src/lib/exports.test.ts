@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFiles, buildSubmissionsFile, formatCell, formatNumber, toCsv, type ExportResult } from './exports';
+import { buildFiles, buildSubmissionsFile, withClientColumns, formatCell, formatNumber, toCsv, type ExportResult } from './exports';
 
 describe('formatting', () => {
   it('numbers use a decimal point, no exponent, at most 6 decimals', () => {
@@ -55,6 +55,22 @@ describe('buildFiles', () => {
     expect(labels.content).toBe('round_id,accident\nR4,1\n');
     expect([train.forStudents, test.forStudents, labels.forStudents, raw.forStudents]).toEqual([true, true, false, false]);
     expect(raw.name).toBe('game_raw_ABC234.csv');
+  });
+
+  it('the raw file gets os, browser, fps and quality from applied.client; empty for older rounds', () => {
+    const rows = withClientColumns([
+      { player: 'anna', applied: { sceneIndex: 3, client: { os: 'Windows', browser: 'Edge', fps: 23.4, quality: 1 } } },
+      { player: 'bob', applied: '{"sceneIndex":1,"client":{"os":"macOS","browser":"Safari","fps":60,"quality":0}}' },
+      { player: 'old', applied: { sceneIndex: 2 } },
+      { player: 'unfinished', applied: null },
+    ]);
+    expect(rows.map((r) => [r.os, r.browser, r.fps, r.quality])).toEqual([
+      ['Windows', 'Edge', 23.4, 1], ['macOS', 'Safari', 60, 0], [null, null, null, null], [null, null, null, null],
+    ]);
+    const raw = buildFiles({ ...x, raw: rows })[3].content.split('\n');
+    expect(raw[0]).toContain('device,os,browser,country');
+    expect(raw[0]).toContain('time_ms,fps,quality,');
+    expect(raw[1]).toContain('Windows,Edge');
   });
 });
 

@@ -129,7 +129,7 @@ Unique (respondent_id, attempt) on `rounds`, so a repeated message cannot create
 
 ## 9. Privacy
 
-Stored: nick, sex, age, device type, viewport size, country, the rounds. Not stored: email (students), user agent, IP address (the country is derived on the fly; Supabase's and Vercel's own request logs are outside the app). The join form says what is stored. A **delete study** button removes everything of a study except the reports the admin downloaded.
+Stored: nick, sex, age, device type, the family of the operating system and of the browser (two words, such as Windows and Edge), viewport size, country, the rounds with their frame rate. Not stored: email (students), the user agent string, IP address (the country is derived on the fly; Supabase's and Vercel's own request logs are outside the app). The join form says what is stored. A **delete study** button removes everything of a study except the reports the admin downloaded.
 
 ## 10. Testing and the day
 

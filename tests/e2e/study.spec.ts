@@ -10,7 +10,7 @@ const ADMIN_PASSWORD = 'local-test-only';
 
 type Round = {
   study_code: string; nick: string; device: string; country: string; attempt: number; counted: boolean | null;
-  outcome: string | null; conditions: Record<string, number>; applied: Record<string, number> | null;
+  outcome: string | null; conditions: Record<string, number>; applied: (Record<string, unknown> & { client?: unknown }) | null;
   ended_at: string | null;
 };
 
@@ -108,7 +108,12 @@ test('two players play freely, say they are done, then progress, a release and t
     [9, true, 'delivered'], [10, true, 'delivered'], [11, true, 'crash_pedestrian'],
   ]);
   expect(a[0]).toMatchObject({ device: 'keyboard', country: 'CZ' });
-  for (const r of a) expect(r.applied).toEqual(r.conditions); // the game applied what the server drew
+  for (const r of a) {
+    const { client, ...applied } = r.applied!;
+    expect(applied).toEqual(r.conditions); // the game applied what the server drew
+    // with every round: what kind of machine it was and how the game ran on it
+    expect(client).toEqual({ os: expect.any(String), browser: 'Chrome', fps: 58.5, quality: 0 });
+  }
 
   // ---- Player 2: phone. One round, a reload in the middle of a round, two more, done. ----
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });

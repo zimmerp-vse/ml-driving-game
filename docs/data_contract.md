@@ -1,4 +1,4 @@
-# Driving game: data contract, v08 (18.11.2026)
+# Driving game: data contract, v09 (20.11.2026)
 
 *Master copy (since 4.11.2026). The ML2 project keeps a pointer. Changes to it affect the ML2 notebooks and scorer, so they are agreed with Pavel and noted under Versions.*
 
@@ -51,13 +51,16 @@ better with its logarithm.
 
 ## 3. What the app logs per round (raw, admin only)
 
-`study_code, player, sex, age, device, country, viewport_width, viewport_height, joined_at, finished_at, attempt, counted, round_started_at, round_ended_at, trip_seconds, car_rate, obstacle_rate, pedestrian_rate, scene, outcome, time_ms, money_earned, money_lost, money_balance, applied`
+`study_code, player, sex, age, device, os, browser, country, viewport_width, viewport_height, joined_at, finished_at, attempt, counted, round_started_at, round_ended_at, trip_seconds, car_rate, obstacle_rate, pedestrian_rate, scene, outcome, time_ms, fps, quality, money_earned, money_lost, money_balance, applied`
 
 * The raw file has **every** round of every player and never changes with a release.
 * `finished_at`: when the player said "I'm done"; empty if they did not (closed the tab, or the study was closed).
 * `counted`: `true` for a delivery or a crash, `false` for a timeout or breakdown, empty for a round that never ended.
-* `applied`: the conditions the game reports it applied (JSON), for checking against the schedule.
-* `device`: `touch` (a phone or tablet, played with the on-screen buttons) or `keyboard` (a computer, played with the arrow keys), from the browser's `pointer: coarse` at join time. A touchpad or a mouse cannot be told apart and does not matter: the car is driven with the keys. **Both kinds of device are allowed**; the device is a feature. No user agent is stored.
+* `applied`: the conditions the game reports it applied (JSON), for checking against the schedule. Since 20.11.2026 it also carries `client`: `{ os, browser, fps, quality }`, which the raw file repeats as four columns.
+* `os`, `browser` (since 20.11.2026): the family of the operating system (`Windows`, `macOS`, `iOS`, `Android`, `ChromeOS`, `Linux`, `other`) and of the browser (`Chrome`, `Edge`, `Firefox`, `Safari`, `Opera`, `Samsung`, `other`), read in the browser when the round ends. Only these two words are stored, never the user agent string. Empty for rounds recorded before, and for a round that never ended.
+* `fps`, `quality` (since 20.11.2026): how the round ran on the player's machine. `fps` is the average number of frames drawn per second while the round was in play (60 on most screens; empty for a round shorter than a second). `quality` is the drawing quality at the end of the round: 0 full, 1 lighter, 2 lightest; the game lowers it by itself when the machine cannot keep up. **A round with a low `fps` was not the same game**: in the class of 19.11.2026, before these columns existed, the machines that lagged timed out in 60 % of rounds.
+* `time_ms`: since 20.11.2026 simulated time, as the countdown: on a machine that cannot keep up, a round lasts longer on the clock than `time_ms` says.
+* `device`: `touch` (a phone or tablet, played with the on-screen buttons) or `keyboard` (a computer, played with the arrow keys), from the browser's `pointer: coarse` at join time. A touchpad or a mouse cannot be told apart and does not matter: the car is driven with the keys. **Both kinds of device are allowed**; the device is a feature. The user agent string is not stored, only the two words in `os` and `browser`.
 * `country`: the country the player connects from, two-letter ISO 3166-1 code, from the IP address at join time (section 3.1); empty if unknown.
 * `sex`: `F`, `M`, or empty for "I'd rather not say". `age`: integer, or empty for "I'd rather not say".
 
@@ -131,6 +134,7 @@ Writes the four files of sections 3 and 4 for an invented class, from the same p
 
 ## Versions
 
+* v09, 20.11.2026 (Pavel): section 3, the raw file gains `os`, `browser`, `fps` and `quality`, and `time_ms` becomes simulated time. The class of 19.11.2026 lagged badly on some Windows laptops, and nothing in the data said which rounds. No database change: the four values travel inside `applied.client`. The student files are unchanged. The consent line now says "the type of device and browser".
 * v08, 18.11.2026 (Pavel): section 2, ranges v04 from the dry run. The three spawn rates are drawn on a **log scale** over a band that reaches lower and much higher than v03 at about the same average: this keeps the accident share near 0.36 while raising what the conditions explain from about 3 % to about 9 %. The time limit narrows to 17 to 24 s: on the finished game a delivery takes 13.2 s and never took more than 14.5 s, so 17 s fails nobody who drives, while a crawl at half pace (about 26 s) now fails at every limit in the range. No change to columns or formats; the generator's defaults follow.
 * v07, 13.11.2026 (Pavel): free play: no training time; players stop with "I'm done" (`finished_at` in the raw file). The split is made at release (section 4.4): the last `test_rounds` counted rounds of players with at least `min_rounds` (defaults 5 and 10) are the test, everything else counted is training; rounds up to a cutoff; numbered releases, the latest goes to students and teams. Raw file: `phase` and `test_index` removed, `finished_at` added. Device `mouse` renamed `keyboard`. Section 7: the generator lives in the app repo. Student file columns unchanged.
 * v01, 3.11.2026: first draft.
