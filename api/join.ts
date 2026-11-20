@@ -52,6 +52,18 @@ export function parseJoinBody(raw: unknown): JoinRequestBody | null {
   };
 }
 
+// Words that data tools read as "missing" when they meet them in a CSV file (pandas' and R's
+// defaults). A player called `null` came out of read_csv with no name at all (class of
+// 19.11.2026), so such a nick is refused. Compared without regard to case.
+const RESERVED_NICKS = new Set([
+  'null', 'na', 'n/a', 'nan', '-nan', 'none', 'nil', '<na>', '#n/a', '#n/a n/a', '#na',
+  '-1.#ind', '-1.#qnan', '1.#ind', '1.#qnan', 'undefined',
+]);
+
+export function isReservedNick(nick: string): boolean {
+  return RESERVED_NICKS.has(nick.trim().toLowerCase());
+}
+
 /** Two-letter country from the platform header, or null (unknown, Tor, missing). */
 export function countryFromHeader(value: string | null): string | null {
   const c = (value ?? '').trim().toUpperCase();
@@ -72,6 +84,8 @@ export async function handleJoin(request: Request, env: JoinEnv, fetchImpl: type
   }
   const body = parseJoinBody(raw);
   if (!body) return json(400, { ok: false, error: 'invalid_input' });
+
+  if (isReservedNick(body.nick)) return json(200, { ok: false, error: 'reserved_nick' });
 
   const country = countryFromHeader(request.headers.get('x-vercel-ip-country'));
 

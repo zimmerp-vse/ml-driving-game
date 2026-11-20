@@ -41,6 +41,19 @@ describe('handleJoin', () => {
     expect(await res.json()).toEqual({ ok: false, error: 'nick_taken' });
   });
 
+  it('refuses a nick that data tools read as a missing value, without calling the database', async () => {
+    const fetchMock = vi.fn();
+    for (const nick of ['null', 'NULL', ' NaN ', 'NA', 'n/a', 'None', '<NA>', 'undefined']) {
+      const res = await handleJoin(req({ ...body, nick }), env, fetchMock as any);
+      expect(await res.json()).toEqual({ ok: false, error: 'reserved_nick' });
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+    // ordinary nicks that only contain such a word pass
+    const ok = vi.fn(async () => new Response(JSON.stringify({ ok: true, respondent_id: 'r', token: 't', nick: 'Nana' })));
+    for (const nick of ['Nana', 'null2', 'anon']) await handleJoin(req({ ...body, nick }), env, ok as any);
+    expect(ok).toHaveBeenCalledTimes(3);
+  });
+
   it('rejects bad input without calling the database', async () => {
     const fetchMock = vi.fn();
     for (const b of [{ ...body, device: 'tv' }, { ...body, age: 5 }, { ...body, code: 'x' }, { ...body, sex: 'Q' }]) {

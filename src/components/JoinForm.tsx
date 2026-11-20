@@ -6,6 +6,7 @@ import { join, type StudyInfo } from '../lib/api';
 const ERRORS: Record<string, string> = {
   nick_taken: 'This nick is already taken. Please choose another one.',
   invalid_nick: 'Your nick must have 2 to 20 characters.',
+  reserved_nick: 'This nick cannot be used. Please choose another one.',
   invalid_input: 'Please check your answers.',
   full: 'This study is full.',
   server: 'Something went wrong. Please try again.',
