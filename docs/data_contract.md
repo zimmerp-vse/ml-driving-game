@@ -62,6 +62,7 @@ better with its logarithm.
 * `time_ms`: since 20.11.2026 simulated time, as the countdown: on a machine that cannot keep up, a round lasts longer on the clock than `time_ms` says.
 * `device`: `touch` (a phone or tablet, played with the on-screen buttons) or `keyboard` (a computer, played with the arrow keys), from the browser's `pointer: coarse` at join time. A touchpad or a mouse cannot be told apart and does not matter: the car is driven with the keys. **Both kinds of device are allowed**; the device is a feature. The user agent string is not stored, only the two words in `os` and `browser`.
 * `country`: the country the player connects from, two-letter ISO 3166-1 code, from the IP address at join time (section 3.1); empty if unknown.
+* `player`: the nick, 2 to 20 characters. Since 20.11.2026 the join refuses the words that data tools read as a missing value (`null`, `NA`, `N/A`, `NaN`, `None`, `nil`, `<NA>`, `undefined` and pandas' other defaults, in any case). The class of 19.11.2026 has one player called `null`: read its files with `keep_default_na=False`.
 * `sex`: `F`, `M`, or empty for "I'd rather not say". `age`: integer, or empty for "I'd rather not say".
 
 ### 3.1 Country
