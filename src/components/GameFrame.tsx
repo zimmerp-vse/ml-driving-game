@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GAME_ORIGIN, GAME_URL } from '../lib/defaults';
+import { clientInfo } from '../lib/client';
 import {
   finishPlaying, roundEnd, roundStart, startSchedule, withRetry,
   type PlayerStats, type Position, type ScheduleResult,
@@ -194,7 +195,8 @@ export function GameFrame({
               moneyEarned: p.moneyEarned,
               moneyLost: p.moneyLost,
               moneyBalance: p.moneyBalance,
-              applied: p.applied,
+              // The game's conditions, plus what kind of machine played the round and how it ran.
+              applied: { ...(p.applied ?? {}), client: { ...clientInfo(), fps: p.perf?.fps ?? null, quality: p.perf?.quality ?? null } },
             }),
           );
           if (r.ok && r.done) return finish('done', r);

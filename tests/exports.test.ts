@@ -142,6 +142,7 @@ describe('the split (data contract 4.4)', () => {
 
   it('the raw export has every round with the contract section 3 columns', async () => {
     const x = await admin('public.mlg_admin_export($1)', [studyId]);
+    // os, browser, fps and quality are not database columns: the app reads them from `applied.client`.
     expect(x.raw).toHaveLength(13);
     expect(Object.keys(x.raw[0]).sort()).toEqual([
       'age', 'applied', 'attempt', 'car_rate', 'counted', 'country', 'device', 'finished_at', 'joined_at',

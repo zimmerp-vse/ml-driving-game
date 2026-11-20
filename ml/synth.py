@@ -369,9 +369,10 @@ TRAIN_COLUMNS = ["round_id", "player", "sex", "age", "device", "country", "attem
 TEST_COLUMNS = [c for c in TRAIN_COLUMNS if c != "accident"]
 LABEL_COLUMNS = ["round_id", "accident"]
 RAW_COLUMNS = [
-    "study_code", "player", "sex", "age", "device", "country", "viewport_width", "viewport_height",
+    # os, browser, fps and quality are measured by the real app; the generator leaves them empty.
+    "study_code", "player", "sex", "age", "device", "os", "browser", "country", "viewport_width", "viewport_height",
     "joined_at", "finished_at", "attempt", "counted", "round_started_at", "round_ended_at",
-    "trip_seconds", "car_rate", "obstacle_rate", "pedestrian_rate", "scene", "outcome", "time_ms",
+    "trip_seconds", "car_rate", "obstacle_rate", "pedestrian_rate", "scene", "outcome", "time_ms", "fps", "quality",
     "money_earned", "money_lost", "money_balance", "applied",
 ]
 
